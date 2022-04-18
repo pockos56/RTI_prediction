@@ -71,15 +71,19 @@ println("Nothing changes at: $(bad2)")
 ## Refining the columns
 
 data1_not_bad1 = select(data1, Not(bad1))            # Removing the high variation descriptors
-data1_not_bad2 = select(data1_not_bad1, Not(bad2))    # Removing the descriptors which not change
+#data1_not_bad2 = select(data1_not_bad1, Not(bad2))    # Removing the descriptors which not change (!!) We decided not to ignore those descriptors,
+                                                       # as they would be of value to investigate the applicability domain of other compounds outside the data
 
-refined_data = data1_not_bad2
+refined_data = data1_not_bad1
 
 ## Exctracting the useful descriptors
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_GreekDataset_+ESI.csv", refined_data)
+
 using BSON
-CSV.write("C:\\Users\\alex_\\Desktop\\Minor project\\Julia\\Refined_GreekDataset_+ESI.csv", refined_data)
-nice_desc = names(data1_not_bad1)
-CSV.write("C:\\Users\\alex_\\Desktop\\Minor project\\Julia\\Descriptors_OK.csv", nice_desc)
+nice_desc = names(refined_data)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Nice descriptors", nice_desc)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Nice descriptors", nice_desc)
+
 
 ## Normalization
 # Descriptors 0<desc<10 are OK
