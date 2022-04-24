@@ -42,12 +42,26 @@ ylims!(-5000,5000)
 ## Regression
 
 MaxFeat = Int(round(sqrt(size(desc,2))))
-reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=7,verbose =1, oob_score =true, max_features= MaxFeat)
+reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=7, oob_score =true, max_features= MaxFeat)
 ## QUESTION: WHAT IS VERBOSITY?
-
-
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
 accuracy = score(reg, X_train, y_train)
+
+accuracies = zeros(8,5)
+for sample_per_leaf = 2:2:16
+    for no_trees = 100:200:900
+        reg = RandomForestRegressor(n_estimators=no_trees, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= MaxFeat)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        fit!(reg, X_train, y_train)
+        accuracy = score(reg, X_train, y_train)
+        accuracies[Int((sample_per_leaf)/2),Int((no_trees+100)/200)] = accuracy
+        println("The obtained accuracy for $(no_trees) trees and $(sample_per_leaf) samples/leaf is $accuracy")
+    end
+end
+heatmap(accuracies)
+findmax(accuracies)
+
+
 n_folds=5
 cross_val_score(reg, X_train, y_train; cv=n_folds)
