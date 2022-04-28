@@ -6,7 +6,9 @@ using Plots
 using LinearAlgebra
 using PyCall
 
+import StatsBase as BS
 import StatsPlots as sp
+
 
 using ScikitLearn.CrossValidation: cross_val_score
 using ScikitLearn.CrossValidation: train_test_split
@@ -33,10 +35,9 @@ RTI = data[:,2]
 desc = Matrix(data[:,8:end])
 
 #################################
-# Plotting the RTIs
+# Experimental RTI Plotting
 RTI1 = sort(RTI)
-sp.histogram(RTI,bins=50, label=false)
-sp.scatter(RTI, label=false)
+sp.histogram(RTI,bins=70, label=false)
 
 #################################
 ## Regression
@@ -71,8 +72,8 @@ important_desc = names(data[:,8:end])[significant_columns]
 # 7. Smallest absolute eigenvalue of Burden modified matrix - n 2 / weighted by relative Sanderson electronegativities
 # 8. Crippen's molar refractivity
 
-sp.scatter(y_train,y_h_tr,label="Training set",bins = 50,legend=:topleft)
-sp.scatter!(y_test,y_h,bins = 50,label="Test set",legend=:topleft)
+sp.scatter(y_train,y_hat_train,label="Training set",bins = 50,legend=:topleft)
+sp.scatter!(y_test,y_hat_test,bins = 50,label="Test set",legend=:topleft)
 sp.plot!([0,1000],[0,1000],label="1:1 line",linecolor ="black")
 sp.xlabel!("Measured RTI")
 sp.ylabel!("Predicted RTI")
@@ -97,3 +98,39 @@ for sample_per_leaf = 2#:2:16
 end
 heatmap(accuracies)
 findmax(accuracies)
+
+
+## Leverage (from ToxPredict)
+
+function leverage_dist(X_train,itr)
+
+    lev = zeros(itr)
+
+    for i =1:itr
+        ind = BS.sample(1:size(X_train,1))
+        x = X_train[ind,:]
+        lev[i] = transpose(x) * pinv(transpose(X_train) * X_train) * x
+        println(i)
+    end
+
+    return lev
+
+end
+
+itr = 2
+lev = leverage_dist(X_train,itr)
+
+## My Leverage function
+
+function leverage_dist(X_train)
+    lev = zeros(size(X_train,1))
+    for ind =1:10           #size(X_train,1)
+        x = X_train[ind,:]
+        lev[i] = transpose(x) * pinv(transpose(X_train) * X_train) * x
+        println(i)
+    end
+    return lev
+end
+
+lev = leverage_dist(X_train)
+histogram(lev[1:10], bins=10)
