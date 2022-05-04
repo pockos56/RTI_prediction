@@ -43,7 +43,7 @@ sp.histogram(RTI,bins=70, label=false)
 ## Regression
 MaxFeat = Int(round(sqrt(size(desc,2))))*2
 reg = RandomForestRegressor(n_estimators=700, min_samples_leaf=2, oob_score =true, max_features= MaxFeat)
-X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.10, random_state=21);
+X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
 
 ## Calculation of R2
@@ -120,17 +120,21 @@ end
 itr = 2
 lev = leverage_dist(X_train,itr)
 
+
 ## My Leverage function
 
 function leverage_dist(X_train)
     lev = zeros(size(X_train,1))
-    for ind =1:10           #size(X_train,1)
+    for ind =1:size(X_train,1)
         x = X_train[ind,:]
-        lev[i] = transpose(x) * pinv(transpose(X_train) * X_train) * x
-        println(i)
+        lev[ind] = transpose(x) * pinv(transpose(X_train) * X_train) * x
+        println(ind)
     end
     return lev
 end
 
 lev = leverage_dist(X_train)
-histogram(lev[1:10], bins=10)
+df = DataFrame(lev=lev)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",df)
+histogram(lev, bins=30, label = false)
+boxplot(lev, label = false)
