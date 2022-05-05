@@ -9,7 +9,6 @@ using PyCall
 import StatsBase as BS
 import StatsPlots as sp
 
-
 using ScikitLearn.CrossValidation: cross_val_score
 using ScikitLearn.CrossValidation: train_test_split
 @sk_import ensemble: RandomForestRegressor
@@ -41,10 +40,77 @@ sp.histogram(RTI,bins=70, label=false)
 
 #################################
 ## Regression
-MaxFeat = Int(round(sqrt(size(desc,2))))*2
-reg = RandomForestRegressor(n_estimators=700, min_samples_leaf=2, oob_score =true, max_features= MaxFeat)
+MaxFeat = Int(round(sqrt(size(desc,2))))
+reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
+
+## Parameter Optimization
+accuracies = zeros(8,12,10)
+for sample_per_leaf = 4:4:16
+    for no_trees = 100:100:1200 #:200:900
+        reg = RandomForestRegressor(n_estimators=no_trees, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= MaxFeat)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        fit!(reg, X_train, y_train)
+        accuracy = score(reg, X_train, y_train)
+        accuracies[Int((sample_per_leaf)/4),Int(no_trees/100)] = accuracy
+        println("The obtained accuracy [$(no_trees) trees, $(sample_per_leaf) samples/leaf and $(MaxFeat) max features] is $accuracy")
+    end
+end
+heatmap(accuracies)
+findmax(accuracies)
+surface(accuracies)
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Accuracies.png")
+
+# Optimization of samples per leaf
+cross_val_accuracies = zeros(8,5)
+for sample_per_leaf = 2:2:16
+        reg = RandomForestRegressor(n_estimators=200, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= 46)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        fit!(reg, X_train, y_train)
+        cross_val_accuracies[Int((sample_per_leaf)/2),:] = cross_val_score(reg, X_train, y_train, cv=5)
+        println(sample_per_leaf)
+end
+
+sp.scatter(cross_val_accuracies, label = ["2" "4" "6" "8" "10" "12" "14" "16"], legend=false)
+sp.xaxis!("(Sample per leaf)/2")
+sp.yaxis!("R2")
+sp.title!("Cross validation score for different sample per leaf")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Sample_per_leaf_$data_name.png")
+
+# Optimization of number of trees
+cross_val_accuracies2 = zeros(12,5)
+for number_of_trees = 100:100:1200
+        reg = RandomForestRegressor(n_estimators=number_of_trees, min_samples_leaf=6, oob_score =true, max_features= 46)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        fit!(reg, X_train, y_train)
+        cross_val_accuracies2[Int((number_of_trees)/100),:] = cross_val_score(reg, X_train, y_train, cv=5)
+        println(number_of_trees)
+end
+cross_val_accuracies_mean = mean(cross_val_accuracies2, dims=2)
+sp.scatter(cross_val_accuracies_mean, legend=false)
+sp.xaxis!("(number of trees)/100")
+sp.yaxis!("R2")
+sp.title!("Cross validation score for different number of trees")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Number_of_trees_$data_name.png")
+
+# Optimization of max number of features
+cross_val_accuracies3 = zeros(56,5)
+for MaxFeat = 36:2:56
+        reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        fit!(reg, X_train, y_train)
+        cross_val_accuracies3[MaxFeat,:] = cross_val_score(reg, X_train, y_train, cv=5)
+        println(MaxFeat)
+end
+cross_val_accuracies_mean = mean(cross_val_accuracies3, dims=2)
+sp.scatter(cross_val_accuracies_mean, legend=false)
+sp.ylims!(0.7,0.715)
+sp.xlims!(35,57)
+sp.xaxis!("Max Features")
+sp.yaxis!("R2")
+sp.title!("Cross validation score for different max features")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$data_name.png")
 
 ## Calculation of R2
 accuracy = score(reg, X_train, y_train)
@@ -54,8 +120,7 @@ y_hat_test = predict(reg,X_test)
 y_hat_train = predict(reg,X_train)
 
 ## Cross Validation
-n_folds=5
-cross_val_score(reg, X_train, y_train; cv=n_folds)
+cross_val_score(reg, X_train, y_train, cv=5)
 
 ## Finding the most important descriptors
 importance = 100 .* sort(reg.feature_importances_, rev=true)
@@ -83,22 +148,6 @@ sp.title!("RTI regression all descriptors")
 # Increasing max_features shows a better regression
 # min_samples_leaf should stay as low as 2
 # number of trees has no significant benefit after a certain number (eg.100)
-
-## Parameter Optimization
-accuracies = zeros(1,10)
-for sample_per_leaf = 2#:2:16
-    for no_trees = 10:10:100 #:200:900
-        reg = RandomForestRegressor(n_estimators=no_trees, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= MaxFeat)
-        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
-        fit!(reg, X_train, y_train)
-        accuracy = score(reg, X_train, y_train)
-        accuracies[Int((sample_per_leaf)/2),Int(no_trees/10)] = accuracy
-        println("The obtained accuracy [$(no_trees) trees, $(sample_per_leaf) samples/leaf and $(MaxFeat) max features] is $accuracy")
-    end
-end
-heatmap(accuracies)
-findmax(accuracies)
-
 
 ## Leverage (from ToxPredict)
 
