@@ -135,7 +135,10 @@ for j = 8:size(refined_norm_data,2)
         end
     end
 end
-heatmap(countmissing, legend = false, label = "Missing values location")
+heatmap(countmissing, legend = false)
+heatmap(countmissing, legend = false, title = "Missing values location")
+xaxis!("Descriptors")
+yaxis!("Compounds")
 
 countmissing = falses(size(refined_norm_data,2))
 for i = 1:size(refined_norm_data,1)
