@@ -29,26 +29,29 @@ using ScikitLearn.CrossValidation: train_test_split
 # Change data from here (gre or am)
 am = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_Amide.csv", DataFrame)
 GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_GR.csv", DataFrame)
-data = am
-data_name = "Amide"
-
+data = GR
+data_name = "Greek"
+show(data)
 # For the Greek dataset
-#        s = data[:,2]
-#        s = replace!(",", "\",\"")
-#        RTI = parse.(Float64, s)
+ s = data[!,[:2]]
+ CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", s)
+ s_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
+ RTI = s_cor[:,1]
+ desc = Matrix(data[:,5:end])
 
 # For the Amide dataset
-RTI = data[:,2]
-desc = Matrix(data[:,8:end])
+# RTI = data[:,2]
+# desc = Matrix(data[:,8:end])
+
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
-sp.histogram(RTI, bins=45, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
+sp.histogram(RTI, bins=60, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
 
 logp = data.XLogP[:]
-mass = data.MONOISOMASS[:]
-sp.scatter(mass,logp,legend=false,title="LogP vs Mass",xaxis="Mass",yaxis="LogP")
+mass = data.MW[:]
+sp.scatter(mass,logp,legend=false,title="LogP vs Mass for the $(data_name) dataset",xaxis="Mass",yaxis="LogP")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\LogP-Mass_$data_name.png")
 
 #################################
@@ -201,5 +204,5 @@ CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_
 df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",DataFrame)
 lev = Matrix(df)
 
-histogram(lev, bins=35, label = false, title="Applicability Domain", xaxis="Leverage")
+histogram(lev, bins=35, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_$data_name.png")
