@@ -20,6 +20,8 @@ using ScikitLearn.CrossValidation: train_test_split
 # Max_features_parameter = Sqrt(#descriptors)
 # X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=400, test_size=200, random_state=4)
 #
+# Empirical good default values are max_features=n_features/3 for regression
+# problems, and max_features=sqrt(n_features) for classification tasks
 #
 #################################
 ## Importing the data
@@ -46,23 +48,9 @@ X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, r
 fit!(reg, X_train, y_train)
 
 ## Parameter Optimization
-accuracies = zeros(8,12,10)
-for sample_per_leaf = 4:4:16
-    for no_trees = 100:100:1200 #:200:900
-        reg = RandomForestRegressor(n_estimators=no_trees, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= MaxFeat)
-        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
-        fit!(reg, X_train, y_train)
-        accuracy = score(reg, X_train, y_train)
-        accuracies[Int((sample_per_leaf)/4),Int(no_trees/100)] = accuracy
-        println("The obtained accuracy [$(no_trees) trees, $(sample_per_leaf) samples/leaf and $(MaxFeat) max features] is $accuracy")
-    end
-end
-heatmap(accuracies)
-findmax(accuracies)
-surface(accuracies)
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Accuracies.png")
 
 # Optimization of samples per leaf
+
 cross_val_accuracies = zeros(8,5)
 for sample_per_leaf = 2:2:16
         reg = RandomForestRegressor(n_estimators=200, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= 46)
@@ -79,6 +67,7 @@ sp.title!("Cross validation score for different sample per leaf")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Sample_per_leaf_$data_name.png")
 
 # Optimization of number of trees
+
 cross_val_accuracies2 = zeros(12,5)
 for number_of_trees = 100:100:1200
         reg = RandomForestRegressor(n_estimators=number_of_trees, min_samples_leaf=6, oob_score =true, max_features= 46)
@@ -95,22 +84,32 @@ sp.title!("Cross validation score for different number of trees")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Number_of_trees_$data_name.png")
 
 # Optimization of max number of features
-cross_val_accuracies3 = zeros(56,5)
-for MaxFeat = 36:2:56
+
+cross_val_accuracies3 = zeros(700,5)
+for MaxFeat = [76,300,700]
         reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
-        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21, n_jobs=-1)
         fit!(reg, X_train, y_train)
         cross_val_accuracies3[MaxFeat,:] = cross_val_score(reg, X_train, y_train, cv=5)
         println(MaxFeat)
 end
 cross_val_accuracies_mean = mean(cross_val_accuracies3, dims=2)
 sp.scatter(cross_val_accuracies_mean, legend=false)
-sp.ylims!(0.7,0.715)
-sp.xlims!(35,57)
+sp.ylims!(0.7,0.8)
+sp.xlims!(35,700)
 sp.xaxis!("Max Features")
 sp.yaxis!("R2")
 sp.title!("Cross validation score for different max features")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$data_name.png")
+
+## Regression with optimal parameters
+
+MaxFeat = Int(round((size(desc,2))/3))
+n_estimators = 600
+min_samples_leaf = 4
+reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
+X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+fit!(reg, X_train, y_train)
 
 ## Calculation of R2
 accuracy = score(reg, X_train, y_train)
@@ -128,6 +127,7 @@ importance_index = sortperm(reg.feature_importances_, rev=true)
 significant_columns = importance_index[importance .>=1.5]
 important_desc = names(data[:,8:end])[significant_columns]
 
+# To be updated...
 # 1. Crippen's LogP
 # 2. Mannhold LogP
 # 3. XLogP
@@ -137,12 +137,13 @@ important_desc = names(data[:,8:end])[significant_columns]
 # 7. Smallest absolute eigenvalue of Burden modified matrix - n 2 / weighted by relative Sanderson electronegativities
 # 8. Crippen's molar refractivity
 
-sp.scatter(y_train,y_hat_train,label="Training set",bins = 50,legend=:topleft)
+sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft)
 sp.scatter!(y_test,y_hat_test,bins = 50,label="Test set",legend=:topleft)
 sp.plot!([0,1000],[0,1000],label="1:1 line",linecolor ="black")
 sp.xlabel!("Measured RTI")
 sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression all descriptors")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_$data_name.png")
 
 ##Remarks:
 # Increasing max_features shows a better regression
@@ -150,6 +151,7 @@ sp.title!("RTI regression all descriptors")
 # number of trees has no significant benefit after a certain number (eg.100)
 
 ## Leverage (from ToxPredict)
+# Why is it like this?
 
 function leverage_dist(X_train,itr)
 
