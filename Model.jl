@@ -28,21 +28,32 @@ using ScikitLearn.CrossValidation: train_test_split
 
 # Change data from here (gre or am)
 am = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_Amide.csv", DataFrame)
-# GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_GR.csv", DataFrame)
+GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_GR.csv", DataFrame)
 data = am
 data_name = "Amide"
 
+# For the Greek dataset
+#        s = data[:,2]
+#        s = replace!(",", "\",\"")
+#        RTI = parse.(Float64, s)
+
+# For the Amide dataset
 RTI = data[:,2]
 desc = Matrix(data[:,8:end])
-
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
-sp.histogram(RTI,bins=70, label=false)
+sp.histogram(RTI, bins=45, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
+
+logp = data.XLogP[:]
+mass = data.MONOISOMASS[:]
+sp.scatter(mass,logp,legend=false,title="LogP vs Mass",xaxis="Mass",yaxis="LogP")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\LogP-Mass_$data_name.png")
 
 #################################
 ## Regression
-MaxFeat = Int(round(sqrt(size(desc,2))))
+MaxFeat = Int(round((size(desc,2))/3))
 reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
@@ -51,61 +62,59 @@ fit!(reg, X_train, y_train)
 
 # Optimization of samples per leaf
 
-cross_val_accuracies = zeros(8,5)
+cross_val_accuracies = zeros(16,5)
 for sample_per_leaf = 2:2:16
-        reg = RandomForestRegressor(n_estimators=200, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= 46)
+        reg = RandomForestRegressor(n_estimators=200, min_samples_leaf=sample_per_leaf, oob_score =true, max_features= MaxFeat)
         X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
         fit!(reg, X_train, y_train)
-        cross_val_accuracies[Int((sample_per_leaf)/2),:] = cross_val_score(reg, X_train, y_train, cv=5)
+        cross_val_accuracies[sample_per_leaf,:] = cross_val_score(reg, X_train, y_train, cv=5)
         println(sample_per_leaf)
 end
 
-sp.scatter(cross_val_accuracies, label = ["2" "4" "6" "8" "10" "12" "14" "16"], legend=false)
-sp.xaxis!("(Sample per leaf)/2")
-sp.yaxis!("R2")
-sp.title!("Cross validation score for different sample per leaf")
+cross_val_accuracies_mean = mean(cross_val_accuracies, dims=2)
+
+sp.scatter(cross_val_accuracies_mean, legend=false, xaxis = "Sample per leaf", yaxis = "R2", title = "Cross validation score for different sample per leaf")
+sp.ylims!(0.74,0.78)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Sample_per_leaf_$data_name.png")
 
 # Optimization of number of trees
 
-cross_val_accuracies2 = zeros(12,5)
+cross_val_accuracies2 = zeros(1200,5)
 for number_of_trees = 100:100:1200
-        reg = RandomForestRegressor(n_estimators=number_of_trees, min_samples_leaf=6, oob_score =true, max_features= 46)
+        reg = RandomForestRegressor(n_estimators=number_of_trees, min_samples_leaf=6, oob_score =true, max_features= MaxFeat, n_jobs=-1)
         X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
         fit!(reg, X_train, y_train)
-        cross_val_accuracies2[Int((number_of_trees)/100),:] = cross_val_score(reg, X_train, y_train, cv=5)
+        cross_val_accuracies2[number_of_trees,:] = cross_val_score(reg, X_train, y_train, cv=5)
         println(number_of_trees)
 end
-cross_val_accuracies_mean = mean(cross_val_accuracies2, dims=2)
-sp.scatter(cross_val_accuracies_mean, legend=false)
-sp.xaxis!("(number of trees)/100")
-sp.yaxis!("R2")
-sp.title!("Cross validation score for different number of trees")
+
+cross_val_accuracies_mean2 = mean(cross_val_accuracies2, dims=2)
+
+sp.scatter(cross_val_accuracies_mean2, legend=false, xaxis="number of trees",yaxis="R2",title="Cross validation score for different number of trees")
+sp.ylims!(0.75,0.77)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Number_of_trees_$data_name.png")
 
 # Optimization of max number of features
 
-cross_val_accuracies3 = zeros(700,5)
-for MaxFeat = [76,300,700]
-        reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
-        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21, n_jobs=-1)
+cross_val_accuracies3 = zeros(1000,5)
+for MaxFeat = [15,46,90,200,500,699,1000]
+        reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat, n_jobs=-1)
+        X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21)
         fit!(reg, X_train, y_train)
         cross_val_accuracies3[MaxFeat,:] = cross_val_score(reg, X_train, y_train, cv=5)
         println(MaxFeat)
 end
-cross_val_accuracies_mean = mean(cross_val_accuracies3, dims=2)
-sp.scatter(cross_val_accuracies_mean, legend=false)
-sp.ylims!(0.7,0.8)
-sp.xlims!(35,700)
-sp.xaxis!("Max Features")
-sp.yaxis!("R2")
-sp.title!("Cross validation score for different max features")
+cross_val_accuracies_mean3 = mean(cross_val_accuracies3, dims=2)
+
+sp.scatter(cross_val_accuracies_mean3, legend=false,xaxis="Max Features",yaxis="R2",title="Cross validation score for different max features")
+sp.ylims!(0.7,0.78)
+
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$data_name.png")
 
 ## Regression with optimal parameters
 
 MaxFeat = Int(round((size(desc,2))/3))
-n_estimators = 600
+n_estimators = 300
 min_samples_leaf = 4
 reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
@@ -119,7 +128,8 @@ y_hat_test = predict(reg,X_test)
 y_hat_train = predict(reg,X_train)
 
 ## Cross Validation
-cross_val_score(reg, X_train, y_train, cv=5)
+CV = cross_val_score(reg, X_train, y_train, cv=5)
+CV_mean = mean(CV)
 
 ## Finding the most important descriptors
 importance = 100 .* sort(reg.feature_importances_, rev=true)
@@ -137,10 +147,10 @@ important_desc = names(data[:,8:end])[significant_columns]
 # 7. Smallest absolute eigenvalue of Burden modified matrix - n 2 / weighted by relative Sanderson electronegativities
 # 8. Crippen's molar refractivity
 
-sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft)
-sp.scatter!(y_test,y_hat_test,bins = 50,label="Test set",legend=:topleft)
-sp.plot!([0,1000],[0,1000],label="1:1 line",linecolor ="black")
-sp.xlabel!("Measured RTI")
+sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft, color = :magenta)
+sp.scatter!(y_test,y_hat_test,label="Test set",legend=:topleft, color=:orange)
+sp.plot!([0,1000],[0,1000],label="1:1 line",linecolor ="black",width=2)
+sp.xlabel!("Experimental RTI")
 sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression all descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_$data_name.png")
@@ -187,5 +197,9 @@ end
 lev = leverage_dist(X_train)
 df = DataFrame(lev=lev)
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",df)
-histogram(lev, bins=30, label = false)
-boxplot(lev, label = false)
+
+df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",DataFrame)
+lev = Matrix(df)
+
+histogram(lev, bins=35, label = false, title="Applicability Domain", xaxis="Leverage")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_$data_name.png")
