@@ -31,9 +31,9 @@ am = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm
 GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_GR.csv", DataFrame)
 data = GR
 data_name = "Greek"
-show(data)
+
 # For the Greek dataset
- s = data[!,[:2]]
+s = data[!,[:2]]
  CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", s)
  s_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
  RTI = s_cor[:,1]
@@ -41,7 +41,7 @@ show(data)
 
 # For the Amide dataset
 # RTI = data[:,2]
-# desc = Matrix(data[:,8:end])
+ #desc = Matrix(data[:,8:end])
 
 #################################
 # Experimental RTI Plotting
@@ -51,7 +51,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distributio
 
 logp = data.XLogP[:]
 mass = data.MW[:]
-sp.scatter(mass,logp,legend=false,title="LogP vs Mass for the $(data_name) dataset",xaxis="Mass",yaxis="LogP")
+sp.scatter(mass,logp,legend=false,title="LogP vs Mass for the $(data_name) dataset",xaxis="MW",yaxis="LogP")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\LogP-Mass_$data_name.png")
 
 #################################
@@ -124,7 +124,9 @@ X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, r
 fit!(reg, X_train, y_train)
 
 ## Calculation of R2
-accuracy = score(reg, X_train, y_train)
+accuracy_train = score(reg, X_train, y_train)
+
+accuracy_test = score(reg, X_test, y_test)
 
 ## Prediction of RTIs using the model
 y_hat_test = predict(reg,X_test)
