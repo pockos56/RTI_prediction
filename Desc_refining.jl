@@ -147,10 +147,13 @@ for i = 1:size(refined_norm_data,1)
     end
 end
 
-bad_comps = findall(countmissing)
+bad_comps_amide = findall(countmissing)
+
+using BSON
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\bad_comps_amide", bad_comps_amide)
 heatmap(countmissing, legend = false, label = "Missing values location")
 
-No_missings = refined_norm_data[Not(bad_comps), :]
+No_missings = refined_norm_data[Not(bad_comps_amide), :]
 
 countmissing = falses(size(No_missings,1), size(No_missings,2))
 for j = 8:size(No_missings,2)
@@ -262,3 +265,11 @@ sum(countmissing) # Equals zero! :)
 
 ## Saving the refined normalised AMIDE dataset
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norm_GR.csv", ref_norm_nomissing_data_gr)
+
+
+
+
+##
+# Loading the good descriptors
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Nice descriptors", nice_desc)
