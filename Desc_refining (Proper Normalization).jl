@@ -31,7 +31,9 @@ for j = 1:size(countmissing,2)
     end
 end
 bad = bad[2:length(bad)]
-#734 descriptors have a least one missing value
+#734 descriptors have a least one missing value (25% of the dataset used for that Calculation)
+#913 descriptors have a least one missing value (100% of the dataset used for that Calculation)
+
 
 norm = select(Norm_clean,Not(bad))
 countmissing = (ismissing.(Matrix(norm)))
@@ -207,3 +209,9 @@ for j = 1:size(norman_ref_AM,2)
           norman_ref_AM[:,j] = vec_temp
     end
 end
+
+## Saving the refined datasets
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.csv", amide_ref)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", greek_ref)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", norman_ref_GR)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", norman_ref_AM)
