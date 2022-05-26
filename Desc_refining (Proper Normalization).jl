@@ -14,7 +14,7 @@ for i = 2:20
     Norm_raw = vcat(Norm_raw, Norm_temp)
     println("$i/20")
 end
-
+show(Norm_raw)
 Norm_clean = select(Norm_raw, nice_desc)
 
 countmissing = (ismissing.(Matrix(Norm_clean)))
@@ -45,7 +45,7 @@ x = findall(x -> x >0, countmissing)        # No missing values :-)
 amide_raw = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Amide_descriptors1.csv", DataFrame)
 amide_ = select(amide_raw, nice_desc)
 amide = select(amide_,Not(bad))
-
+show(amide_raw)
 #Check for missing
 countmissing = (ismissing.(Matrix(amide)))
 x = findall(x -> x >0, countmissing)        # No missing values :-)
@@ -209,6 +209,22 @@ for j = 1:size(norman_ref_AM,2)
           norman_ref_AM[:,j] = vec_temp
     end
 end
+## Bringing back the same first columns
+amide_ref_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.csv", DataFrame)
+greek_ref_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", DataFrame)
+norman_ref_GR_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
+norman_ref_AM_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
+
+norman_ref_GR = hcat(Norm_raw[:,1:2], norman_ref_GR_)
+norman_ref_AM = hcat(Norm_raw[:,1:2], norman_ref_AM_)
+
+amide_ref = hcat(amide_raw[:,1:5], amide_ref_)
+
+greek_ref = hcat(greek_raw[:,1:3], greek_ref_)
+
+#
+#
+#
 
 ## Saving the refined datasets
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.csv", amide_ref)
