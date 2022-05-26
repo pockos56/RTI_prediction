@@ -35,18 +35,18 @@ norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined
 data = GR
 data_name = "Greek"
 
-#= For the Greek dataset
+# For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-=#
-# For the Amide dataset
-        RTI = data[:,2]
-        desc = Matrix(data[:,6:end])
 #
+#= For the Amide dataset
+        RTI = data[:,2]
+        desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
+=#
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
@@ -121,7 +121,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$d
 ###
 
 MaxFeat = Int(round((size(desc,2))/3))
-n_estimators = 400
+n_estimators = 500
 min_samples_leaf = 4
 reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
@@ -209,9 +209,12 @@ BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 
 ## Model - Selected descriptors
-desc_temp = Matrix(select(data, important_desc[1:13]))
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_names_partial_model_$data_name", selection)
+
+desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -236,6 +239,19 @@ sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
 
+## Norman RI prediction
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
+X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
+fit!(reg, X_train, y_train)
+
+norm_GR_desc = Matrix(select(norm_GR, selection))
+RI_norman_GR = predict(reg, norm_GR_desc)
+
+sp.histogram(RI_norman_GR, label = false, bins=300)
+sp.xlabel!("Predicted RTI")
+sp.ylabel!("Frequency")
+sp.title!("RTIs of the Norman dataset - $data_name")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_$data_name.png")
 
 ##Remarks:
 # Increasing max_features shows a better regression
