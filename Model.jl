@@ -26,27 +26,27 @@ using ScikitLearn.CrossValidation: train_test_split
 #################################
 ## Importing the data
 
-# Change data from here (gre or am)
+# Change data from here (GR or AM)
 AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.csv", DataFrame)
 GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", DataFrame)
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = GR
-data_name = "Greek"
+data = AM
+data_name = "Amide"
 
-# For the Greek dataset
+#= For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-#
-#= For the Amide dataset
+=#
+# For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-=#
+#
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
@@ -121,7 +121,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$d
 ###
 
 MaxFeat = Int(round((size(desc,2))/3))
-n_estimators = 500
+n_estimators = 400
 min_samples_leaf = 4
 reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
@@ -214,7 +214,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -281,23 +281,27 @@ lev = leverage_dist(X_train,itr)
 =#
 
 ## My Leverage function
-
-function leverage_dist(X_train)
-    lev = zeros(size(X_train,1))
-    for ind =1:size(X_train,1)
-        x = X_train[ind,:]
-        lev[ind] = transpose(x) * pinv(transpose(X_train) * X_train) * x
+## Question: The Applicability Domain should be with all the descriptors?
+# The model doesn't contain them all, so why does it make sense?
+#
+function leverage_dist(X_train, Norman)
+    lev = zeros(size(Norman,1))
+    z = pinv(transpose(X_train) * X_train)
+    for ind = 1:size(Norman,1)
+        x = Norman[ind,:]
+        lev[ind] = transpose(x) * z * x
         println(ind)
     end
     return lev
 end
+Norman = Matrix(select(norm_AM, selection))
+lev = leverage_dist(X_train, Norman)
 
-lev = leverage_dist(X_train)
 df = DataFrame(lev=lev)
-CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",df)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman_$(data_name).csv",df)
 
-df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_$(data_name).csv",DataFrame)
+df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman_$(data_name).csv",DataFrame)
 lev = Matrix(df)
 
-histogram(lev, bins=35, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_$data_name.png")
+histogram(lev, bins=500, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage", xlims = (0,0.5))
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_$data_name.png")
