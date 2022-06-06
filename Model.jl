@@ -51,7 +51,7 @@ desc = Matrix(data[:,4:end])
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
 sp.histogram(RTI, bins=60, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
+#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
 #=     ###              PROBLEM -> NOT ENOUGH descriptors that contain MW and logP       ###
 logp = data.MLogP[:]
 mass = data.MW[:]
@@ -121,7 +121,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$d
 ###
 
 MaxFeat = Int(round((size(desc,2))/3))
-n_estimators = 400
+n_estimators = 400          #500 for the Greek, 400 for the Amide
 min_samples_leaf = 4
 reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
@@ -214,7 +214,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -238,6 +238,59 @@ sp.xlabel!("Experimental RTI")
 sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
+
+## Distribution
+# Lowest point
+sort(y_hat_test)[1]
+sort(y_hat_train)[1]
+
+lowest = sortperm(y_hat_train)[1]
+y_hat_train[lowest]
+
+X_low = zeros(5000,length(X_train[lowest,:]))
+for i = 1:size(X_low,1)
+    change = BS.sample(1:length(X_train[lowest,:]))
+    for j = 1:length(X_train[lowest,:])
+        if j == change
+            percentage = BS.sample(-0.2:0.01:0.2)
+            X_low[i,j] = X_train[lowest,j] + percentage
+        else
+            X_low[i,j] = X_train[lowest,j]
+        end
+    end
+end
+
+y_hat_low = predict(reg,X_low)
+histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
+
+# Highest point
+sort(y_hat_test)[end]
+sort(y_hat_train)[end]
+
+highest = sortperm(y_hat_train)[end]
+y_hat_train[highest]
+
+X_high = zeros(5000,length(X_train[highest,:]))
+for i = 1:size(X_high,1)
+    change = BS.sample(1:length(X_train[highest,:]))
+    for j = 1:length(X_train[highest,:])
+        if j == change
+            percentage = BS.sample(-0.2:0.01:0.2)
+            X_high[i,j] = X_train[highest,j] + percentage
+        else
+            X_high[i,j] = X_train[highest,j]
+        end
+    end
+end
+
+y_hat_high = predict(reg,X_high)
+histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
+
+
+
+
 
 ## Norman RI prediction
 reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
