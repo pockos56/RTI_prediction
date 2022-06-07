@@ -143,7 +143,8 @@ CV_mean = mean(CV)
 importance = 100 .* sort(reg.feature_importances_, rev=true)
 importance_index = sortperm(reg.feature_importances_, rev=true)
 significant_columns = importance_index[importance .>=0.1]
-important_desc = names(data[:,4:end])[significant_columns]
+important_desc = names(data[:,6:end])[significant_columns]     # For Amide
+#important_desc = names(data[:,4:end])[significant_columns]     # For Greek
 
 # To be updated...
 # 1. Crippen's LogP
@@ -394,52 +395,115 @@ h_star_gr = (3*(1170+1))/1452
 
 # Norman - Amide dataset
 lev_am = lev[:,1]
-judgement_am = convert.(Int64,zeros(length(lev_am)))
+assessment_am = convert.(Int64,zeros(length(lev_am)))
 
-for i = 1:length(judgement_am)
+for i = 1:length(assessment_am)
     if lev_am[i] <= h_star_am
-        judgement_am[i] = 1
+        assessment_am[i] = 1
     elseif lev_am[i] <= 3*h_star_am
-        judgement_am[i] = 2
+        assessment_am[i] = 2
     else
-        judgement_am[i] = 3
+        assessment_am[i] = 3
     end
 end
 
 histogram(lev[:,1], bins=800000, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage", xlims = (0,100))
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_Amide.png")
 
-histogram(judgement_am, label=false, bins =4, title = "Applicability Domain for the Amide dataset")
+histogram(assessment_am, label=false, bins =4, title = "Applicability Domain for the Amide dataset")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_Norman_Amide.png")
 
-judgement_am_1 = judgement_am[judgement_am.==1] # 11.7k out of 95k are ok
-judgement_am_2 = judgement_am[judgement_am.==2] # 8.5k out of 95k are meh
-judgement_am_3 = judgement_am[judgement_am.==3] # 74.9k out of 95k are NOT ok
+assessment_am_1 = assessment_am[assessment_am.==1] # 11.7k out of 95k are ok
+assessment_am_2 = assessment_am[assessment_am.==2] # 8.5k out of 95k are meh
+assessment_am_3 = assessment_am[assessment_am.==3] # 74.9k out of 95k are NOT ok
 
 # Norman - Greek dataset
 lev_gr = lev[:,2]
-judgement_gr = convert.(Int64,zeros(length(lev_gr)))
+assessment_gr = convert.(Int64,zeros(length(lev_gr)))
 
-for i = 1:length(judgement_gr)
+for i = 1:length(assessment_gr)
     if lev_gr[i] <= h_star_gr
-        judgement_gr[i] = 1
+        assessment_gr[i] = 1
     elseif lev_gr[i] <= 3*h_star_gr
-        judgement_gr[i] = 2
+        assessment_gr[i] = 2
     else
-        judgement_gr[i] = 3
+        assessment_gr[i] = 3
     end
 end
 
 histogram(lev[:,2], bins=800000, label = false, title="Applicability Domain for the Greek dataset", xaxis="Leverage", xlims = (0,100))
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_Greek.png")
 
-histogram(judgement_gr, label=false, bins =4, title = "Applicability Domain for the Greek dataset")
+histogram(assessment_gr, label=false, bins =4, title = "Applicability Domain for the Greek dataset")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_Norman_Greek.png")
 
-judgement_gr_1 = judgement_gr[judgement_gr.==1] # 26.8k out of 95k are ok
-judgement_gr_2 = judgement_gr[judgement_gr.==2] # 27k out of 95k are meh
-judgement_gr_3 = judgement_gr[judgement_gr.==3] # 41.3k out of 95k are NOT ok
+assessment_gr_1 = assessment_gr[assessment_gr.==1] # 26.8k out of 95k are ok
+assessment_gr_2 = assessment_gr[assessment_gr.==2] # 27k out of 95k are meh
+assessment_gr_3 = assessment_gr[assessment_gr.==3] # 41.3k out of 95k are NOT ok
 
 using BSON
-BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", judgement_am)
-BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
+
+
+
+## PCA
+@sk_import decomposition: PCA  # We want to run a PCA
+
+#Setup PCA model
+
+# For Amide (all training set) and Norman (all descriptors)
+RTI_am = AM[:,2]
+desc_am = Matrix(AM[:,6:end])           # Careful! Matrix should have 1170 descriptors
+
+X_train_am, X_test, y_train, y_test = train_test_split(desc_am, RTI_am, test_size=0.20, random_state=21)
+norm_am_desc = Matrix(norm_AM[!,3:end])
+norm_am = vcat(X_train_am,norm_am_desc)
+
+pca = PCA(n_components = size(norm_am,2))
+pca.fit(norm_am)
+scatter(1:100, cumsum(pca.explained_variance_ratio_), label = "SVD", ylims=(0,1), legend=:topleft)
+
+pca = PCA(n_components = 2)
+pca.fit(norm_am)
+loadings_am = pca.components_
+scores_am = pca.fit_transform(norm_am)
+
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", judgement_am)
+
+scatter((scores_am[1191:end,:])[judgement_am.==3,1], (scores_am[1191:end,:])[judgement_am.==3,2], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_am[1191:end,:])[judgement_am.==1,1], (scores_am[1191:end,:])[judgement_am.==1,2], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_am[1191:end,:])[judgement_am.==2,1], (scores_am[1191:end,:])[judgement_am.==2,2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
+
+# For Greek (all training set) and Norman (all descriptors)
+
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Greek.csv", GR[!,[:2]])
+retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Greek.csv", DataFrame, decimal = ',')
+RTI_gr = retention_cor[:,1]
+desc_gr = Matrix(GR[:,4:end])
+
+
+X_train_gr, X_test, y_train, y_test = train_test_split(desc_gr, RTI_gr, test_size=0.20, random_state=21)
+norm_gr_desc = Matrix(norm_GR[!,3:end])
+norm_gr = vcat(X_train_gr,norm_gr_desc)
+
+pca = PCA(n_components = size(norm_gr,2))
+pca.fit(norm_gr)
+scatter(1:100, cumsum(pca.explained_variance_ratio_), label = "SVD", ylims=(0,1), legend=:topleft)
+
+pca = PCA(n_components = 2)
+pca.fit(norm_gr)
+loadings_gr = pca.components_
+scores_gr = pca.fit_transform(norm_gr)
+
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
+
+scatter((scores_gr[1453:end,:])[judgement_gr.==3,1], (scores_gr[1453:end,:])[judgement_gr.==3,2], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_gr[1453:end,:])[judgement_gr.==1,1], (scores_gr[1453:end,:])[judgement_gr.==1,2], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_gr[1453:end,:])[judgement_gr.==2,1], (scores_gr[1453:end,:])[judgement_gr.==2,2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!(scores_gr[1:1452,1], scores_gr[1:1452,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Greek.png")
