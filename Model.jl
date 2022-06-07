@@ -121,15 +121,14 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$d
 ###
 
 MaxFeat = Int(round((size(desc,2))/3))
-n_estimators = 400          #500 for the Greek, 400 for the Amide
+n_estimators = 500          #500 for the Greek, 400 for the Amide
 min_samples_leaf = 4
-reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true)
+reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
 
 ## Calculation of R2
 accuracy_train = score(reg, X_train, y_train)
-
 accuracy_test = score(reg, X_test, y_test)
 
 ## Prediction of RTIs using the model
@@ -144,7 +143,7 @@ CV_mean = mean(CV)
 importance = 100 .* sort(reg.feature_importances_, rev=true)
 importance_index = sortperm(reg.feature_importances_, rev=true)
 significant_columns = importance_index[importance .>=0.1]
-important_desc = names(data[:,6:end])[significant_columns]
+important_desc = names(data[:,4:end])[significant_columns]
 
 # To be updated...
 # 1. Crippen's LogP
@@ -200,10 +199,10 @@ sp.ylabel!("CV score")
 sp.title!("CV Score vs. no. of descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Partial_Model_CV_Score_$data_name.png")
 
-# For the greek dataset we need at least 3 descriptors - let's save them
+# For the greek dataset we need at least 3 descriptors - let's save the first 5
 # For the amide dataset we need at least 13 descriptors - let's save them
 
-selection = important_desc[1:13]
+selection = important_desc[1:5]
 using BSON
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_names_partial_model_$data_name", selection)
 
@@ -214,7 +213,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -239,23 +238,50 @@ sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
 
-## Distribution
+## Distribution (1st try)
 # Lowest point
+sort(y_hat_test)[1]
+sort(y_hat_train)[1]
+
+lowest = sortperm(y_hat_test)[1]
+y_hat_test[lowest]
+
+X_low = zeros(5000,length(X_test[lowest,:]))
+for i = 1:size(X_low,1)
+    change = BS.sample(1:length(X_test[lowest,:]))
+    for j = 1:length(X_test[lowest,:])
+        if j == change
+            small_change = BS.sample(-0.3:0.001:0.3)
+            X_low[i,j] = X_test[lowest,j] + small_change
+        else
+            X_low[i,j] = X_test[lowest,j]
+        end
+    end
+end
+
+y_hat_low = predict(reg,X_low)
+y_hat_lowest = sort(y_hat_low)[1]
+histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
+
+#= Distribution (2nd try) -Very inconsistent results
+    # Lowest point
 sort(y_hat_test)[1]
 sort(y_hat_train)[1]
 
 lowest = sortperm(y_hat_train)[1]
 y_hat_train[lowest]
 
-X_low = zeros(5000,length(X_train[lowest,:]))
-for i = 1:size(X_low,1)
+X_low = zeros(50000,length(X_train[lowest,:]))
+X_low[1,:] = X_train[lowest,:]
+for i = 2:size(X_low,1)
     change = BS.sample(1:length(X_train[lowest,:]))
     for j = 1:length(X_train[lowest,:])
         if j == change
-            percentage = BS.sample(-0.2:0.01:0.2)
-            X_low[i,j] = X_train[lowest,j] + percentage
+            percentage = BS.sample(-0.01:0.0001:0.01)
+            X_low[i,j] = X_low[i-1,j] + percentage
         else
-            X_low[i,j] = X_train[lowest,j]
+            X_low[i,j] = X_low[i-1,j]
         end
     end
 end
@@ -263,6 +289,7 @@ end
 y_hat_low = predict(reg,X_low)
 histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
+=#
 
 # Highest point
 sort(y_hat_test)[end]
@@ -276,8 +303,12 @@ for i = 1:size(X_high,1)
     change = BS.sample(1:length(X_train[highest,:]))
     for j = 1:length(X_train[highest,:])
         if j == change
-            percentage = BS.sample(-0.2:0.01:0.2)
-            X_high[i,j] = X_train[highest,j] + percentage
+            percentage = BS.sample(-0.25:0.01:0.25)
+            if (X_train[highest,j] + percentage) < 1
+                X_high[i,j] = X_train[highest,j] + percentage
+            else
+                X_high[i,j] = X_train[highest,j]
+            end
         else
             X_high[i,j] = X_train[highest,j]
         end
@@ -286,6 +317,7 @@ end
 
 y_hat_high = predict(reg,X_high)
 histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
+y_hat_highest = sort(y_hat_high,rev=true)[1]
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
 
 
@@ -293,7 +325,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_d
 
 
 ## Norman RI prediction
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -347,14 +379,67 @@ function leverage_dist(X_train, Norman)
     end
     return lev
 end
-Norman = Matrix(select(norm_AM, selection))
-lev = leverage_dist(X_train, Norman)
+lev_norman_am = leverage_dist(X_train_am, Matrix(norman_am))
+lev_norman_gr = leverage_dist(X_train_gr, Matrix(norman_gr))
 
-df = DataFrame(lev=lev)
-CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman_$(data_name).csv",df)
+df = DataFrame(lev_norman_am = lev_norman_am, lev_norman_gr = lev_norman_gr)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman.csv",df)
 
-df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman_$(data_name).csv",DataFrame)
+## Loading the leverage
+df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman.csv",DataFrame)
 lev = Matrix(df)
 
-histogram(lev, bins=500, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage", xlims = (0,0.5))
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_$data_name.png")
+h_star_am = (3*(1170+1))/1190
+h_star_gr = (3*(1170+1))/1452
+
+# Norman - Amide dataset
+lev_am = lev[:,1]
+judgement_am = convert.(Int64,zeros(length(lev_am)))
+
+for i = 1:length(judgement_am)
+    if lev_am[i] <= h_star_am
+        judgement_am[i] = 1
+    elseif lev_am[i] <= 3*h_star_am
+        judgement_am[i] = 2
+    else
+        judgement_am[i] = 3
+    end
+end
+
+histogram(lev[:,1], bins=800000, label = false, title="Applicability Domain for the Amide dataset", xaxis="Leverage", xlims = (0,100))
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_Amide.png")
+
+histogram(judgement_am, label=false, bins =4, title = "Applicability Domain for the Amide dataset")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_Norman_Amide.png")
+
+judgement_am_1 = judgement_am[judgement_am.==1] # 11.7k out of 95k are ok
+judgement_am_2 = judgement_am[judgement_am.==2] # 8.5k out of 95k are meh
+judgement_am_3 = judgement_am[judgement_am.==3] # 74.9k out of 95k are NOT ok
+
+# Norman - Greek dataset
+lev_gr = lev[:,2]
+judgement_gr = convert.(Int64,zeros(length(lev_gr)))
+
+for i = 1:length(judgement_gr)
+    if lev_gr[i] <= h_star_gr
+        judgement_gr[i] = 1
+    elseif lev_gr[i] <= 3*h_star_gr
+        judgement_gr[i] = 2
+    else
+        judgement_gr[i] = 3
+    end
+end
+
+histogram(lev[:,2], bins=800000, label = false, title="Applicability Domain for the Greek dataset", xaxis="Leverage", xlims = (0,100))
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_histogram_Norman_Greek.png")
+
+histogram(judgement_gr, label=false, bins =4, title = "Applicability Domain for the Greek dataset")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_Norman_Greek.png")
+
+judgement_gr_1 = judgement_gr[judgement_gr.==1] # 26.8k out of 95k are ok
+judgement_gr_2 = judgement_gr[judgement_gr.==2] # 27k out of 95k are meh
+judgement_gr_3 = judgement_gr[judgement_gr.==3] # 41.3k out of 95k are NOT ok
+
+using BSON
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", judgement_am)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
