@@ -32,21 +32,21 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = AM
-data_name = "Amide"
+data = GR
+data_name = "Greek"
 
-#= For the Greek dataset
+# For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-=#
-# For the Amide dataset
+#
+#= For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-#
+=#
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
@@ -252,7 +252,7 @@ for i = 1:size(X_low,1)
     change = BS.sample(1:length(X_test[lowest,:]))
     for j = 1:length(X_test[lowest,:])
         if j == change
-            small_change = BS.sample(-0.3:0.001:0.3)
+            small_change = BS.sample(-0.2:0.001:0.2)
             X_low[i,j] = X_test[lowest,j] + small_change
         else
             X_low[i,j] = X_test[lowest,j]
@@ -264,6 +264,9 @@ y_hat_low = predict(reg,X_low)
 y_hat_lowest = sort(y_hat_low)[1]
 histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
+
+boxplot(y_hat_low, label=false, ylims=(30,60),yaxis = "Predicted RTI",title = "Lowest point - Distribution")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_boxplot_$data_name.png")
 
 #= Distribution (2nd try) -Very inconsistent results
     # Lowest point
@@ -317,11 +320,13 @@ for i = 1:size(X_high,1)
 end
 
 y_hat_high = predict(reg,X_high)
-histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
 y_hat_highest = sort(y_hat_high,rev=true)[1]
+
+histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
 
-
+boxplot(y_hat_high, label=false, ylims = (710,925),yaxis = "Predicted RTI",title = "Highest point - Distribution")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_boxplot_$data_name.png")
 
 
 
