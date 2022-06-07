@@ -472,9 +472,9 @@ scores_am = pca.fit_transform(norm_am)
 using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", judgement_am)
 
-scatter((scores_am[1191:end,:])[judgement_am.==3,1], (scores_am[1191:end,:])[judgement_am.==3,2], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
-scatter!((scores_am[1191:end,:])[judgement_am.==1,1], (scores_am[1191:end,:])[judgement_am.==1,2], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_am[1191:end,:])[judgement_am.==2,1], (scores_am[1191:end,:])[judgement_am.==2,2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter((scores_am[1191:end,1])[judgement_am.==3], (scores_am[1191:end,2])[judgement_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_am[1191:end,1])[judgement_am.==2], (scores_am[1191:end,2])[judgement_am.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_am[1191:end,1])[judgement_am.==1], (scores_am[1191:end,2])[judgement_am.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
 scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
 
@@ -502,8 +502,8 @@ scores_gr = pca.fit_transform(norm_gr)
 using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
 
-scatter((scores_gr[1453:end,:])[judgement_gr.==3,1], (scores_gr[1453:end,:])[judgement_gr.==3,2], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
-scatter!((scores_gr[1453:end,:])[judgement_gr.==1,1], (scores_gr[1453:end,:])[judgement_gr.==1,2], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_gr[1453:end,:])[judgement_gr.==2,1], (scores_gr[1453:end,:])[judgement_gr.==2,2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter((scores_gr[1453:end,1])[judgement_gr.==3], (scores_gr[1453:end,2])[judgement_gr.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_gr[1453:end,1])[judgement_gr.==2], (scores_gr[1453:end,2])[judgement_gr.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_gr[1453:end,1])[judgement_gr.==1], (scores_gr[1453:end,2])[judgement_gr.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
 scatter!(scores_gr[1:1452,1], scores_gr[1:1452,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Greek.png")
