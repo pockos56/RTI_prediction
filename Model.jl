@@ -32,21 +32,21 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = GR
-data_name = "Greek"
+data = AM
+data_name = "Amide"
 
-# For the Greek dataset
+#= For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-#
-#= For the Amide dataset
+=#
+# For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-=#
+#
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
@@ -214,7 +214,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -391,6 +391,25 @@ lev_norman_gr = leverage_dist(X_train_gr, Matrix(norman_gr))
 df = DataFrame(lev_norman_am = lev_norman_am, lev_norman_gr = lev_norman_gr)
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman.csv",df)
 
+# Boxplots for amide leverage
+
+res_test = y_test - y_hat_test
+res_train = y_train - y_hat_train
+
+lev_train = leverage_dist(X_train, X_train)
+lev_test = leverage_dist(X_train, X_test)
+
+boxplot(vcat(lev_train,lev_test), ylims=(0,10), label=false, ylabel = "Leverage")
+cutoff = 3*std(vcat(res_test,res_train))
+
+scatter(lev_train,res_train, c=:green, label="Train set", title="Williams plot")
+scatter!(lev_test,res_test, c=:orange, label="Test set")
+plot!([2.952,2.952],[minimum(vcat(res_test,res_train)),maximum(vcat(res_test,res_train))],label=false,linecolor ="black",width=2)
+plot!([0,maximum(vcat(lev_train,lev_test))],[cutoff,cutoff],label=false,linecolor ="black",width=2)
+plot!([0,maximum(vcat(lev_train,lev_test))],[-cutoff,-cutoff],label=false,linecolor ="black",width=2)
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Williams_$data_name.png")
+
+
 ## Loading the leverage
 df = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman.csv",DataFrame)
 lev = Matrix(df)
@@ -425,7 +444,6 @@ assessment_am_3 = assessment_am[assessment_am.==3] # 74.9k out of 95k are NOT ok
 # Norman - Greek dataset
 lev_gr = lev[:,2]
 assessment_gr = convert.(Int64,zeros(length(lev_gr)))
-
 for i = 1:length(assessment_gr)
     if lev_gr[i] <= h_star_gr
         assessment_gr[i] = 1
@@ -457,7 +475,7 @@ BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_gre
 
 #Setup PCA model
 
-# For Amide (all training set) and Norman (all descriptors)
+# For Amide (full training set) and Norman (all descriptors)
 RTI_am = AM[:,2]
 desc_am = Matrix(AM[:,6:end])           # Careful! Matrix should have 1170 descriptors
 
@@ -475,15 +493,40 @@ loadings_am = pca.components_
 scores_am = pca.fit_transform(norm_am)
 
 using BSON
-BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", judgement_am)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
 
-scatter((scores_am[1191:end,1])[judgement_am.==3], (scores_am[1191:end,2])[judgement_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
-scatter!((scores_am[1191:end,1])[judgement_am.==2], (scores_am[1191:end,2])[judgement_am.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_am[1191:end,1])[judgement_am.==1], (scores_am[1191:end,2])[judgement_am.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
+scatter((scores_am[1191:end,1])[assessment_am.==3], (scores_am[1191:end,2])[assessment_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_am[1191:end,1])[assessment_am.==2], (scores_am[1191:end,2])[assessment_am.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_am[1191:end,1])[assessment_am.==1], (scores_am[1191:end,2])[assessment_am.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
 scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
 
-# For Greek (all training set) and Norman (all descriptors)
+# For Amide (full training set) and Norman (all descriptors) - 2nd try two different PCAs #Not good either
+RTI_am = AM[:,2]
+desc_am = Matrix(AM[:,6:end])           # Careful! Matrix should have 1170 descriptors
+
+X_train_am, X_test, y_train, y_test = train_test_split(desc_am, RTI_am, test_size=0.20, random_state=21)
+norm_am_desc = Matrix(norm_AM[!,3:end])
+
+pcatr = PCA(n_components = 2)
+pcatr.fit(X_train_am)
+scores_am = pcatr.fit_transform(X_train_am)
+
+pcano = PCA(n_components = 2)
+pcano.fit(norm_am_desc)
+scores_norm_am = pcano.fit_transform(norm_am_desc)
+
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
+
+scatter((scores_norm_am[:,1])[assessment_am.==3], (scores_norm_am[:,2])[assessment_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_norm_am[:,1])[assessment_am.==2], (scores_norm_am[:,2])[assessment_am.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_norm_am[:,1])[assessment_am.==1], (scores_norm_am[:,2])[assessment_am.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
+scatter!(scores_am[:,1], scores_am[:,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
+
+
+# For Greek (full training set) and Norman (all descriptors)
 
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Greek.csv", GR[!,[:2]])
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Greek.csv", DataFrame, decimal = ',')
@@ -507,8 +550,8 @@ scores_gr = pca.fit_transform(norm_gr)
 using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
 
-scatter((scores_gr[1453:end,1])[judgement_gr.==3], (scores_gr[1453:end,2])[judgement_gr.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
-scatter!((scores_gr[1453:end,1])[judgement_gr.==2], (scores_gr[1453:end,2])[judgement_gr.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_gr[1453:end,1])[judgement_gr.==1], (scores_gr[1453:end,2])[judgement_gr.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
+scatter((scores_gr[1453:end,1])[assessment_gr.==3], (scores_gr[1453:end,2])[assessment_gr.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter!((scores_gr[1453:end,1])[assessment_gr.==2], (scores_gr[1453:end,2])[assessment_gr.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_gr[1453:end,1])[assessment_gr.==1], (scores_gr[1453:end,2])[assessment_gr.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
 scatter!(scores_gr[1:1452,1], scores_gr[1:1452,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Greek.png")
