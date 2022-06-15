@@ -32,21 +32,21 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = AM
-data_name = "Amide"
+data = GR
+data_name = "Greek"
 
-#= For the Greek dataset
+# For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-=#
-# For the Amide dataset
+#
+#= For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-#
+=#
 #################################
 # Experimental RTI Plotting
 RTI1 = sort(RTI)
@@ -117,6 +117,7 @@ sp.scatter(cross_val_accuracies_mean3, legend=false,xaxis="Max Features",yaxis="
 sp.ylims!(0.67,0.825)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Max_features_$data_name.png")
 =#
+
 ## Regression with optimal parameters
 ###
 
@@ -145,16 +146,6 @@ importance_index = sortperm(reg.feature_importances_, rev=true)
 significant_columns = importance_index[importance .>=0.1]
 important_desc = names(data[:,6:end])[significant_columns]     # For Amide
 #important_desc = names(data[:,4:end])[significant_columns]     # For Greek
-
-# To be updated...
-# 1. Crippen's LogP
-# 2. Mannhold LogP
-# 3. XLogP
-# 4. Number of carbon atoms
-# 5. Molar refractivity
-# 6. Average Broto-Moreau autocorrelation - lag 1 / weighted by first ionization potential
-# 7. Smallest absolute eigenvalue of Burden modified matrix - n 2 / weighted by relative Sanderson electronegativities
-# 8. Crippen's molar refractivity
 
 sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft, color = :magenta)
 sp.scatter!(y_test,y_hat_test,label="Test set",legend=:topleft, color=:orange)
@@ -214,7 +205,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -239,23 +230,35 @@ sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
 
-## Distribution (1st try)
+# Covariance matrix
+covtemp = cov(hcat(RTI, desc_temp))
+covtemp[1,1]=0
+heatmap(covtemp,title = "Covariance matrix heatmap - $data_name")
+savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Covariance_heatmap_$data_name.png")
+
+# Distribution of Descriptors (to find the adjustment range)
+quantiles = zeros(size(desc_temp,2),2)
+for i=1:size(desc_temp,2)
+    quantiles[i,:] .= (quantile(desc_temp[:,i],0.025), quantile(desc_temp[:,i],0.975))
+end
+range_quant = (10/100).*(quantiles[:,2]-quantiles[:,1])
+
+## Hi-Lo Distribution
 # Lowest point
-sort(y_hat_test)[1]
 sort(y_hat_train)[1]
 
-lowest = sortperm(y_hat_test)[1]
-y_hat_test[lowest]
+lowest = sortperm(y_hat_train)[1]
+y_hat_train[lowest]
 
-X_low = zeros(5000,length(X_test[lowest,:]))
+X_low = zeros(5000,length(X_train[lowest,:]))
 for i = 1:size(X_low,1)
-    change = BS.sample(1:length(X_test[lowest,:]))
-    for j = 1:length(X_test[lowest,:])
+    change = BS.sample(1:length(X_train[lowest,:]))
+    for j = 1:length(X_train[lowest,:])
         if j == change
-            small_change = BS.sample(-0.2:0.001:0.2)
-            X_low[i,j] = X_test[lowest,j] + small_change
+            small_change = BS.sample(-range_quant[j]:0.001:range_quant[j])
+            X_low[i,j] = X_train[lowest,j] + small_change
         else
-            X_low[i,j] = X_test[lowest,j]
+            X_low[i,j] = X_train[lowest,j]
         end
     end
 end
@@ -265,8 +268,19 @@ y_hat_lowest = sort(y_hat_low)[1]
 histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
 
-boxplot(y_hat_low, label=false, ylims=(30,60),yaxis = "Predicted RTI",title = "Lowest point - Distribution")
+boxplot(y_hat_low, label=false,yaxis = "Predicted RTI",title = "Lowest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_boxplot_$data_name.png")
+
+using Distributions
+#gamma_low = fit(Gamma, y_hat_low)
+#plot(gamma_low,xlims=(240,280))
+
+centr_low = y_hat_low.-y_hat_lowest.+0.00001
+histogram(centr_low)
+gamma_low = fit(Gamma, centr_low)
+plot(gamma_low)
+uncertainty_low =quantile(gamma_low,0.99) - quantile(gamma_low,0.01)
+
 
 #= Distribution (2nd try) -Very inconsistent results
     # Lowest point
@@ -296,7 +310,6 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_di
 =#
 
 # Highest point
-sort(y_hat_test)[end]
 sort(y_hat_train)[end]
 
 highest = sortperm(y_hat_train)[end]
@@ -307,7 +320,7 @@ for i = 1:size(X_high,1)
     change = BS.sample(1:length(X_train[highest,:]))
     for j = 1:length(X_train[highest,:])
         if j == change
-            percentage = BS.sample(-0.25:0.01:0.25)
+            percentage = BS.sample(-range_quant[j]:0.001:range_quant[j])
             if (X_train[highest,j] + percentage) < 1
                 X_high[i,j] = X_train[highest,j] + percentage
             else
@@ -325,10 +338,22 @@ y_hat_highest = sort(y_hat_high,rev=true)[1]
 histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
 
-boxplot(y_hat_high, label=false, ylims = (710,925),yaxis = "Predicted RTI",title = "Highest point - Distribution")
+boxplot(y_hat_high, label=false, zlims = (950,970),yaxis = "Predicted RTI",title = "Highest point - Distribution")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_boxplot_$data_name.png")
 
+using Distributions
+#gamma_low = fit(Gamma, y_hat_low)
+#plot(gamma_low,xlims=(240,280))
 
+centr_high = -(y_hat_high.-y_hat_highest.-0.00001)
+histogram(centr_high)
+gamma_high = fit(Gamma, centr_high)
+plot(gamma_high)
+uncertainty_high =quantile(gamma_high,0.99) - quantile(gamma_high,0.01)
+
+##RTI acceptance limits
+threshold_low = y_hat_lowest + uncertainty_low
+threshold_high = y_hat_highest + uncertainty_high
 
 ## Norman RI prediction
 reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
@@ -338,11 +363,47 @@ fit!(reg, X_train, y_train)
 norm_GR_desc = Matrix(select(norm_GR, selection))
 RI_norman_GR = predict(reg, norm_GR_desc)
 
-sp.histogram(RI_norman_GR, label = false, bins=300)
-sp.xlabel!("Predicted RTI")
-sp.ylabel!("Frequency")
-sp.title!("RTIs of the Norman dataset - $data_name")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_$data_name.png")
+## Acceptance RI vector (for Amide dataset)
+RI_assessment_AM = zeros(length(RI_norman_AM))
+for i = 1:length(RI_norman_AM)
+    if RI_norman_AM[i]>threshold_low && RI_norman_AM[i]<threshold_high
+        RI_assessment_AM[i] = 1
+    else
+        RI_assessment_AM[i] = 2
+    end
+end
+
+RI_norman_AM[RI_assessment_AM.== 2] # Red region
+
+using BSON
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Amide", RI_assessment_AM)
+
+# Plot
+histogram(RI_norman_AM[RI_assessment_AM.== 1], c=:lime,label = "Acceptable",legend=:topleft, bins=200,xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
+histogram!(RI_norman_AM[RI_assessment_AM.== 2], c=:coral,bins=200,label = "Unacceptable", xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_$data_name with regions.png")
+#
+
+## Acceptance RI vector (for Greek dataset)
+RI_assessment_GR = zeros(length(RI_norman_GR))
+for i = 1:length(RI_norman_GR)
+    if RI_norman_GR[i]>threshold_low && RI_norman_GR[i]<threshold_high
+        RI_assessment_GR[i] = 1
+    else
+        RI_assessment_GR[i] = 2
+    end
+end
+
+RI_norman_GR[RI_assessment_GR.== 2] # Red region
+
+using BSON
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Greek", RI_assessment_GR)
+
+# Plot
+histogram(RI_norman_GR[RI_assessment_GR.== 1], c=:lime,label="Acceptable",legend=:topleft, bins=100,xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
+histogram!(RI_norman_GR[RI_assessment_GR.== 2], c=:coral,bins=5,label = "Unacceptable")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_Greek with regions.png")
+#
 
 ##Remarks:
 # Increasing max_features shows a better regression
@@ -468,8 +529,95 @@ using BSON
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
 
+## Total RTI assessment
+using BSON
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Amide", RI_assessment_AM)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Greek", RI_assessment_GR)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
 
+#a = [RI_assessment_AM RI_assessment_GR assessment_am assessment_gr]
+#a = DataFrame(RI_AM=RI_assessment_AM,RI_GR=RI_assessment_GR,AD_AM=assessment_am,AD_GR=assessment_gr)
+#CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\temp_file.CSV", a)
 
+total_assessment =falses(length(RI_assessment_AM),2)  #convert.(Int64,zeros(length(RI_assessment_AM),2))
+for i = 1:length(RI_assessment_AM)
+    # Say we have Greek inside AD and RI range (marked as 1821)
+    if assessment_gr[i]==1 && RI_assessment_GR[i]==1
+        total_assessment[i,1] = 1
+    end
+    # Say we have Amide inside AD and RI range (marked as 1821)
+    if assessment_am[i]==1 && RI_assessment_AM[i]==1
+        total_assessment[i,2] = 1
+    end
+end
+b = DataFrame(OK_AM=total_assessment[:,2],OK_GR=total_assessment[:,1])
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\temp_file.CSV", b)
+
+total_sum = (sum(total_assessment,dims=2))[:]
+histogram(total_sum, label=false, c=:yellow)
+index = findall(x -> x == 3843, total_sum)       #[total_sum.==3843,:]
+
+# Venn diagram
+using Conda
+import PyPlot as plt
+Conda.pip_interop(true)
+#Conda.pip("install",["matplotlib_venn"])
+#Conda.pip("install",["pyqt5"])
+venn = pyimport("matplotlib_venn")
+
+AM_not_GR = (sum(total_assessment,dims=1))[2]
+GR_not_AM = (sum(total_assessment,dims=1))[1]
+AM_and_GR = length(total_sum[total_sum.==2])
+
+AMnotGRnotNorman
+# Simple 2 circles Venn
+plt.figure(figsize=(4,4))
+v2 = venn.venn2(subsets = (AM_not_GR, GR_not_AM, AM_and_GR), set_labels = ("AM_not_GR","GR_not_AM","AM_and_GR"))
+
+v2.get_patch_by_id("100").set_color("orange")
+v2.get_patch_by_id("100").set_alpha(0.9)
+v2.get_patch_by_id("010").set_color("orange")
+v2.get_patch_by_id("010").set_alpha(1.0)
+v2.get_patch_by_id("110").set_color("green")
+v2.get_patch_by_id("110").set_alpha(0.9)
+
+plt.show()
+plt.savefig("simple_two_circles7.png")
+
+# 3 circles Venn
+# (Abc, aBc, ABc, abC, AbC, aBC, ABC), where A=AM   B=GR    C=NORMAN
+Abc = 0
+aBc = 0
+ABc = 0
+abC = length(total_sum) - AM_not_GR - GR_not_AM - AM_and_GR
+AbC = AM_not_GR
+aBC = GR_not_AM
+ABC = AM_and_GR
+
+plt.clf()
+v3 = venn.venn3(subsets = (Abc, aBc, ABc, abC, AbC, aBC, ABC), set_labels = ("Amide", "Greek", "Norman dataset", "Norman dataset", "AbC", "aBC", "ABC"))
+v3.get_patch_by_id("111").set_color("green")
+v3.get_patch_by_id("111").set_alpha(0.8)
+v3.get_patch_by_id("111").set_linestyle("solid")
+v3.get_patch_by_id("111").set_linewidth(0)
+
+v3.get_patch_by_id("011").set_color("orange")
+v3.get_patch_by_id("011").set_alpha(0.8)
+v3.get_patch_by_id("011").set_linestyle("solid")
+v3.get_patch_by_id("011").set_linewidth(3)
+
+v3.get_patch_by_id("101").set_color("orange")
+v3.get_patch_by_id("101").set_alpha(0.8)
+v3.get_patch_by_id("101").set_linestyle("solid")
+v3.get_patch_by_id("101").set_linewidth(3)
+
+v3.get_patch_by_id("001").set_color("red")
+v3.get_patch_by_id("001").set_alpha(0.8)
+v3.get_patch_by_id("001").set_linestyle("solid")
+v3.get_patch_by_id("001").set_linewidth(3)
+
+plt.savefig("three_circles9.png")
 ## PCA
 @sk_import decomposition: PCA  # We want to run a PCA
 
@@ -501,7 +649,7 @@ scatter!((scores_am[1191:end,1])[assessment_am.==1], (scores_am[1191:end,2])[ass
 scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
 
-# For Amide (full training set) and Norman (all descriptors) - 2nd try two different PCAs #Not good either
+#= For Amide (full training set) and Norman (all descriptors) - 2nd try two different PCAs #Not good either
 RTI_am = AM[:,2]
 desc_am = Matrix(AM[:,6:end])           # Careful! Matrix should have 1170 descriptors
 
@@ -525,6 +673,7 @@ scatter!((scores_norm_am[:,1])[assessment_am.==1], (scores_norm_am[:,2])[assessm
 scatter!(scores_am[:,1], scores_am[:,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
 
+=#
 
 # For Greek (full training set) and Norman (all descriptors)
 
