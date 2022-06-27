@@ -5,9 +5,11 @@ using CSV
 using Plots
 using LinearAlgebra
 using PyCall
+using BSON
 
-import StatsBase as BS
+#import StatsBase as BS
 import StatsPlots as sp
+import PyPlot as plt
 
 using ScikitLearn.CrossValidation: cross_val_score
 using ScikitLearn.CrossValidation: train_test_split
@@ -32,24 +34,22 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = GR
-data_name = "Greek"
+data = AM
+data_name = "Amide"
 
-# For the Greek dataset
+#= For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
-
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-#
-#= For the Amide dataset
+=#
+# For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-=#
+#
 #################################
 # Experimental RTI Plotting
-RTI1 = sort(RTI)
 sp.histogram(RTI, bins=60, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
 #sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
 #=     ###              PROBLEM -> NOT ENOUGH descriptors that contain MW and logP       ###
@@ -144,7 +144,7 @@ CV_mean = mean(CV)
 importance = 100 .* sort(reg.feature_importances_, rev=true)
 importance_index = sortperm(reg.feature_importances_, rev=true)
 significant_columns = importance_index[importance .>=0.1]
-important_desc = names(data[:,6:end])[significant_columns]     # For Amide
+important_desc = names(data[:,6:end])[significant_columns][13]     # For Amide
 #important_desc = names(data[:,4:end])[significant_columns]     # For Greek
 
 sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft, color = :magenta)
@@ -195,17 +195,16 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Partial_Model_C
 # For the amide dataset we need at least 13 descriptors - let's save them
 
 selection = important_desc[1:5]
-using BSON
+
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_names_partial_model_$data_name", selection)
 
 
 ## Model - Selected descriptors
-using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_names_partial_model_$data_name", selection)
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -230,17 +229,29 @@ sp.ylabel!("Predicted RTI")
 sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
 
-# Covariance matrix
-covtemp = cov(hcat(RTI, desc_temp))
-covtemp[1,1]=0
-heatmap(covtemp,title = "Covariance matrix heatmap - $data_name")
-savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Covariance_heatmap_$data_name.png")
+# Correlation matrix
+cortemp = cor(hcat(RTI, desc_temp))
+
+heatmap(cortemp, title = "Correlation matrix heatmap - $data_name")
+savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Correlation_matrix_heatmap_$data_name.png")
 
 # Distribution of Descriptors (to find the adjustment range)
 quantiles = zeros(size(desc_temp,2),2)
 for i=1:size(desc_temp,2)
     quantiles[i,:] .= (quantile(desc_temp[:,i],0.025), quantile(desc_temp[:,i],0.975))
 end
+histogram(desc_temp[:,5],bins=100,legend=false,xlabel="",ylabel="Probability")
+a1,a2=(quantile(desc_temp[:,5],0.025), quantile(desc_temp[:,5],0.975))
+sp.plot!([a1,a1],[-10,10],label="1:1 line",linewidth=7,linecolor ="black",width=2)
+sp.plot!([a2,a2],[-10,10],label="1:1 line",linewidth=4,linecolor ="black",width=2)
+sp.plot!([a1,a2],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="black",width=2)
+
+sp.savefig("C:\\Users\\alex_\\Desktop\\Descriptor 95% area.png")
+
+gaus = fit_mle(Normal,desc_temp[:,3])
+plot!(gaus)
+(quantile(gaus,0.025), quantile(gaus,0.975))
+(quantile(desc_temp[:,5],0.025), quantile(desc_temp[:,5],0.975))
 range_quant = (10/100).*(quantiles[:,2]-quantiles[:,1])
 
 ## Hi-Lo Distribution
@@ -362,6 +373,8 @@ fit!(reg, X_train, y_train)
 
 norm_GR_desc = Matrix(select(norm_GR, selection))
 RI_norman_GR = predict(reg, norm_GR_desc)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", RI_norman_GR)
+
 
 ## Acceptance RI vector (for Amide dataset)
 RI_assessment_AM = zeros(length(RI_norman_AM))
@@ -396,7 +409,6 @@ end
 
 RI_norman_GR[RI_assessment_GR.== 2] # Red region
 
-using BSON
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Greek", RI_assessment_GR)
 
 # Plot
@@ -525,16 +537,17 @@ assessment_gr_1 = assessment_gr[assessment_gr.==1] # 26.8k out of 95k are ok
 assessment_gr_2 = assessment_gr[assessment_gr.==2] # 27k out of 95k are meh
 assessment_gr_3 = assessment_gr[assessment_gr.==3] # 41.3k out of 95k are NOT ok
 
-using BSON
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
 
 ## Total RTI assessment
-using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Amide", RI_assessment_AM)
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Greek", RI_assessment_GR)
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", RI_norman_GR)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", RI_norman_AM)
+
 
 #a = [RI_assessment_AM RI_assessment_GR assessment_am assessment_gr]
 #a = DataFrame(RI_AM=RI_assessment_AM,RI_GR=RI_assessment_GR,AD_AM=assessment_am,AD_GR=assessment_gr)
@@ -558,9 +571,99 @@ total_sum = (sum(total_assessment,dims=2))[:]
 histogram(total_sum, label=false, c=:yellow)
 index = findall(x -> x == 3843, total_sum)       #[total_sum.==3843,:]
 
+#= Contour
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", RI_norman_GR)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", RI_norman_AM)
+b = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\temp_file.CSV", DataFrame)
+total_sum = (sum(Matrix(b),dims=2))[:].+1
+
+#RIs = hcat(RI_norman_GR,RI_norman_AM)
+i = 1:20000
+df_= DataFrame(RI_norman_GR=RI_norman_GR[i],RI_norman_AM=RI_norman_AM[i],total_sum=total_sum[i])
+df = sort(df_)
+
+z = Diagonal(df.total_sum[i])
+=#
+
+#Scatter instead RI1,RI2, classification
+z=zeros(length(RI_norman_AM))
+z_sort=zeros(length(RI_norman_AM))
+
+z_col=Vector{String}()
+z_mark=Vector{String}()
+for i = 1:length(RI_norman_AM)
+    push!(z_col,"black")
+    push!(z_mark,"circle")
+end
+
+for i = 1:length(RI_norman_AM)
+    # Say we have Greek inside AD and RI range (marked as 1821)
+    if assessment_gr[i]==1 && RI_assessment_GR[i]==1 && assessment_am[i]==1 && RI_assessment_AM[i]==1
+        z[i] = 1
+        z_sort[i] = 5948
+        z_col[i] = "#e9a3c9"        #In both
+        z_mark[i] = "diamond"
+    elseif assessment_am[i]==1 && RI_assessment_AM[i]==1
+        z[i] = 2
+        z_sort[i] = 4057
+        z_col[i] = "#4575b4"
+        z_mark[i] = "circle"  #In Amide
+    elseif assessment_gr[i]==1 && RI_assessment_GR[i]==1
+        z[i] = 3
+        z_sort[i] = 20732
+        z_col[i] = "#c7eae5"
+        z_mark[i] = "pentagon"       #In UoA
+    elseif assessment_gr[i]==1 && assessment_am[i]!=1
+        z[i] = 4
+        z_sort[i] = 19
+        z_col[i] = "#f1a340"        #Out of Amide AD
+        z_mark[i] = "rect"
+    elseif assessment_am[i]==1 && assessment_gr[i]!=1
+        z[i] = 5
+        z_sort[i] = 521
+        z_col[i] = "#d73027"        #Out of UoA AD
+        z_mark[i] = "utriangle"
+    elseif assessment_gr[i]!=1 && assessment_am[i]!=1
+        z[i] = 6
+        z_sort[i] = 63837
+        z_col[i] = "#8c510a"        #Out of both ADs
+        z_mark[i] = "rect"
+    end
+end
+
+index = Int.(zeros(6,2))
+index[:,1]=Int.(collect(1:6))
+for i = 1:6
+    index[i,2] = length(findall(x -> x == i, z))      #[total_sum.==3843,:]
+end
+
+df_=DataFrame(RI_norman_AM=RI_norman_AM, RI_norman_GR=RI_norman_GR,z_col=z_col,z=z,z_sort=z_sort,z_mark=z_mark)
+df=sort(df_,[order(:z_sort, rev=true)])
+marker = reshape(Symbol.(df[:,6]),length(df[:,6]),1)
+
+scatter(df[:,1], df[:,2], color=df[:,3], legend=false,markershape=marker[:],markersize=3,xlabel="n-alkylamide RI", ylabel="UoA RI")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Scatter-RI1-RI2-Classification2.png")
+#=
+z = missings(length(total_sum[i]),length(total_sum[i]))
+for j = 1:size(z,1)
+    z[j,j] = total_sum[j]
+end
+z=missings(2)
+z[1]=convert(z[1]
+=#
+#scatter(RIs[:,2],RIs[:,1],c=total_sum, xlabel = ("RI n-alkylamide"), ylabel = ("RI UoA"),legend=false)
+
+plt.clf()
+a = plt.contour(df[i,2], df[i,1], z[i,i], 2,cmap = "hot",levels=[1,2,3], alpha=0.7)
+a.cmap.set_over("red")
+plt.colorbar()
+plt.xlabel("n-alkylamide RI")
+plt.ylabel("UoA RI")
+
+plt.savefig("contour9-sorted-noextentboth-nonchunk15-20k.png")
+
 # Venn diagram
 using Conda
-import PyPlot as plt
 Conda.pip_interop(true)
 #Conda.pip("install",["matplotlib_venn"])
 #Conda.pip("install",["pyqt5"])
@@ -571,7 +674,7 @@ GR_not_AM = (sum(total_assessment,dims=1))[1]
 AM_and_GR = length(total_sum[total_sum.==2])
 
 AMnotGRnotNorman
-# Simple 2 circles Venn
+#= Simple 2 circles Venn
 plt.figure(figsize=(4,4))
 v2 = venn.venn2(subsets = (AM_not_GR, GR_not_AM, AM_and_GR), set_labels = ("AM_not_GR","GR_not_AM","AM_and_GR"))
 
@@ -584,7 +687,7 @@ v2.get_patch_by_id("110").set_alpha(0.9)
 
 plt.show()
 plt.savefig("simple_two_circles7.png")
-
+=#
 # 3 circles Venn
 # (Abc, aBc, ABc, abC, AbC, aBC, ABC), where A=AM   B=GR    C=NORMAN
 Abc = 0
