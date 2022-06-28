@@ -6,8 +6,9 @@ using Plots
 using LinearAlgebra
 using PyCall
 using BSON
+using Distributions
 
-#import StatsBase as BS
+import StatsBase as BS
 import StatsPlots as sp
 import PyPlot as plt
 
@@ -34,24 +35,24 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 
-data = AM
-data_name = "Amide"
+data = GR
+data_name = "UoA"
 
-#= For the Greek dataset
+#For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-=#
-# For the Amide dataset
+#
+#= For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-#
+=#
 #################################
 # Experimental RTI Plotting
-sp.histogram(RTI, bins=60, label=false, xaxis = "Experimental RTI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
-#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
+histogram(RTI, bins=90, label=false, xaxis = "Experimental RI", yaxis = "Frequency", title = "RI distribution for the $(data_name) dataset")
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RTI_distribution_$data_name.png")
 #=     ###              PROBLEM -> NOT ENOUGH descriptors that contain MW and logP       ###
 logp = data.MLogP[:]
 mass = data.MW[:]
@@ -61,7 +62,7 @@ sp.scatter(mass,logp,legend=false,title="LogP vs Mass for the $(data_name) datas
 #################################
 ## Regression
 MaxFeat = Int(round((size(desc,2))/3))
-reg = RandomForestRegressor(n_estimators=600, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=6, oob_score =true, max_features= MaxFeat)
 X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
 
@@ -221,13 +222,16 @@ CV = cross_val_score(reg, X_train, y_train, cv=5)
 CV_mean = mean(CV)
 
 ## Plots
-sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft, color = :magenta)
+sp.scatter(y_train,y_hat_train,label="Training set", legend=:topleft, color = :green2)
 sp.scatter!(y_test,y_hat_test,label="Test set",legend=:topleft, color=:orange)
 sp.plot!([0,1000],[0,1000],label="1:1 line",linecolor ="black",width=2)
-sp.xlabel!("Experimental RTI")
-sp.ylabel!("Predicted RTI")
-sp.title!("RTI regression $(size(desc_temp,2)) descriptors")
+sp.xlabel!("Experimental RI")
+sp.ylabel!("Predicted RI")
+sp.title!("$data_name model using $(size(desc_temp,2)) descriptors")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Regression_Partial_Model_$data_name.png")
+
+histogram(RTI, bins=60, label="Experimental RIs", xaxis = "Experimental RI", yaxis = "Frequency", title = "RTI distribution for the $(data_name) dataset")
+histogram2d(vcat(y_hat_test,y_hat_train),vcat(res_test,res_train),label="Predicted RIs",bins = 60,alpha=0.5)
 
 # Correlation matrix
 cortemp = cor(hcat(RTI, desc_temp))
@@ -240,6 +244,8 @@ quantiles = zeros(size(desc_temp,2),2)
 for i=1:size(desc_temp,2)
     quantiles[i,:] .= (quantile(desc_temp[:,i],0.025), quantile(desc_temp[:,i],0.975))
 end
+range_quant = (5/100).*(quantiles[:,2]-quantiles[:,1])
+
 histogram(desc_temp[:,5],bins=100,legend=false,xlabel="",ylabel="Probability")
 a1,a2=(quantile(desc_temp[:,5],0.025), quantile(desc_temp[:,5],0.975))
 sp.plot!([a1,a1],[-10,10],label="1:1 line",linewidth=7,linecolor ="black",width=2)
@@ -248,11 +254,6 @@ sp.plot!([a1,a2],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="
 
 sp.savefig("C:\\Users\\alex_\\Desktop\\Descriptor 95% area.png")
 
-gaus = fit_mle(Normal,desc_temp[:,3])
-plot!(gaus)
-(quantile(gaus,0.025), quantile(gaus,0.975))
-(quantile(desc_temp[:,5],0.025), quantile(desc_temp[:,5],0.975))
-range_quant = (10/100).*(quantiles[:,2]-quantiles[:,1])
 
 ## Hi-Lo Distribution
 # Lowest point
@@ -261,64 +262,48 @@ sort(y_hat_train)[1]
 lowest = sortperm(y_hat_train)[1]
 y_hat_train[lowest]
 
-X_low = zeros(5000,length(X_train[lowest,:]))
+#=  X_low = zeros(5000,length(X_train[lowest,:]))
 for i = 1:size(X_low,1)
     change = BS.sample(1:length(X_train[lowest,:]))
     for j = 1:length(X_train[lowest,:])
         if j == change
-            small_change = BS.sample(-range_quant[j]:0.001:range_quant[j])
+            small_change = BS.sample(-range_quant[j]:0.0001:range_quant[j])
             X_low[i,j] = X_train[lowest,j] + small_change
         else
             X_low[i,j] = X_train[lowest,j]
         end
     end
-end
+end =#
 
-y_hat_low = predict(reg,X_low)
-y_hat_lowest = sort(y_hat_low)[1]
-histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
-
-boxplot(y_hat_low, label=false,yaxis = "Predicted RTI",title = "Lowest point - Distribution")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_boxplot_$data_name.png")
-
-using Distributions
-#gamma_low = fit(Gamma, y_hat_low)
-#plot(gamma_low,xlims=(240,280))
-
-centr_low = y_hat_low.-y_hat_lowest.+0.00001
-histogram(centr_low)
-gamma_low = fit(Gamma, centr_low)
-plot(gamma_low)
-uncertainty_low =quantile(gamma_low,0.99) - quantile(gamma_low,0.01)
-
-
-#= Distribution (2nd try) -Very inconsistent results
-    # Lowest point
-sort(y_hat_test)[1]
-sort(y_hat_train)[1]
-
-lowest = sortperm(y_hat_train)[1]
-y_hat_train[lowest]
-
-X_low = zeros(50000,length(X_train[lowest,:]))
-X_low[1,:] = X_train[lowest,:]
-for i = 2:size(X_low,1)
-    change = BS.sample(1:length(X_train[lowest,:]))
+X_low = zeros(10000,length(X_train[lowest,:]))
+for i = 1:size(X_low,1)
     for j = 1:length(X_train[lowest,:])
-        if j == change
-            percentage = BS.sample(-0.01:0.0001:0.01)
-            X_low[i,j] = X_low[i-1,j] + percentage
-        else
-            X_low[i,j] = X_low[i-1,j]
-        end
+            X_low[i,j] = X_train[lowest,j] + BS.sample(-range_quant[j]:0.0001:range_quant[j])
     end
 end
 
 y_hat_low = predict(reg,X_low)
-histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Lowest point - Distribution")
+y_hat_lowest = sort(y_hat_low)[1]
+histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Lowest point - Distribution",bins=100)
+#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
+
+boxplot(y_hat_low, label=false,yaxis = "Predicted RI",title = "Lowest point - Distribution")
+#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_boxplot_$data_name.png")
+
+centr_low = y_hat_low.-y_hat_lowest.+0.00001
+histogram(centr_low)
+
+d_low = fit(Gamma, centr_low)
+lo, hi = quantile.(d_low, [0.001, 0.99])
+x = range(lo, hi; length = 10000)
+uncertainty_low =quantile(d_low,0.975) - quantile(d_low,0.025)
+
+
+histogram(y_hat_low, legend=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Lowest point - Gamma distribution",bins=100)
+plot!(x.+y_hat_lowest, 5000*(pdf.(d,x)),label=false,linewidth=4)
+plot!([y_hat_lowest,y_hat_lowest+uncertainty_low],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="black",width=2)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
-=#
+
 
 # Highest point
 sort(y_hat_train)[end]
@@ -326,45 +311,40 @@ sort(y_hat_train)[end]
 highest = sortperm(y_hat_train)[end]
 y_hat_train[highest]
 
-X_high = zeros(5000,length(X_train[highest,:]))
+X_high = zeros(10000,length(X_train[highest,:]))
 for i = 1:size(X_high,1)
-    change = BS.sample(1:length(X_train[highest,:]))
     for j = 1:length(X_train[highest,:])
-        if j == change
-            percentage = BS.sample(-range_quant[j]:0.001:range_quant[j])
-            if (X_train[highest,j] + percentage) < 1
-                X_high[i,j] = X_train[highest,j] + percentage
-            else
-                X_high[i,j] = X_train[highest,j]
-            end
-        else
-            X_high[i,j] = X_train[highest,j]
-        end
+            X_high[i,j] = X_train[highest,j] + BS.sample(-range_quant[j]:0.0001:range_quant[j])
     end
 end
 
 y_hat_high = predict(reg,X_high)
 y_hat_highest = sort(y_hat_high,rev=true)[1]
 
-histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RTI",title = "Highest point - Distribution")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
+histogram(y_hat_high, label=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Highest point - Distribution")
+#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
 
-boxplot(y_hat_high, label=false, zlims = (950,970),yaxis = "Predicted RTI",title = "Highest point - Distribution")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_boxplot_$data_name.png")
-
-using Distributions
-#gamma_low = fit(Gamma, y_hat_low)
-#plot(gamma_low,xlims=(240,280))
+#boxplot(y_hat_high, label=false, zlims = (950,970),yaxis = "Predicted RTI",title = "Highest point - Distribution")
+#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_boxplot_$data_name.png")
 
 centr_high = -(y_hat_high.-y_hat_highest.-0.00001)
 histogram(centr_high)
-gamma_high = fit(Gamma, centr_high)
-plot(gamma_high)
-uncertainty_high =quantile(gamma_high,0.99) - quantile(gamma_high,0.01)
+
+d_high = fit(Gamma, centr_high)
+lo, hi = quantile.(d_high, [0.001, 0.99])
+x = range(lo, hi; length = 10000)
+uncertainty_high =quantile(d_high,0.975) - quantile(d_high,0.025)
+
+
+histogram(y_hat_high, legend=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Highest point - Gamma distribution",bins=50)
+plot!(-(x.-y_hat_highest), 9000*(pdf.(d,x)),label=false,linewidth=4)
+plot!([y_hat_highest,y_hat_highest-uncertainty_high],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="black",width=2)
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
+
 
 ##RTI acceptance limits
 threshold_low = y_hat_lowest + uncertainty_low
-threshold_high = y_hat_highest + uncertainty_high
+threshold_high = y_hat_highest - uncertainty_high
 
 ## Norman RI prediction
 reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
@@ -392,8 +372,8 @@ using BSON
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Amide", RI_assessment_AM)
 
 # Plot
-histogram(RI_norman_AM[RI_assessment_AM.== 1], c=:lime,label = "Acceptable",legend=:topleft, bins=200,xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
-histogram!(RI_norman_AM[RI_assessment_AM.== 2], c=:coral,bins=200,label = "Unacceptable", xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
+histogram(RI_norman_AM[RI_assessment_AM.== 1], c=:lime,label = "Acceptable",legend=:topleft, bins=200,xlabel="Predicted RI", ylabel="Frequency", title="RIs of the Norman dataset - $data_name")
+histogram!(RI_norman_AM[RI_assessment_AM.== 2], c=:coral,bins=200,label = "Unacceptable", xlabel="Predicted RI", ylabel="Frequency", title="RIs of the Norman dataset - $data_name")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_$data_name with regions.png")
 #
 
@@ -412,8 +392,8 @@ RI_norman_GR[RI_assessment_GR.== 2] # Red region
 BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Assessment_Greek", RI_assessment_GR)
 
 # Plot
-histogram(RI_norman_GR[RI_assessment_GR.== 1], c=:lime,label="Acceptable",legend=:topleft, bins=100,xlabel="Predicted RTI", ylabel="Frequency", title="RTIs of the Norman dataset - $data_name")
-histogram!(RI_norman_GR[RI_assessment_GR.== 2], c=:coral,bins=5,label = "Unacceptable")
+histogram(RI_norman_GR[RI_assessment_GR.== 1], c=:lime,label="Acceptable",legend=:topleft, bins=100,xlabel="Predicted RI", ylabel="Frequency", title="RIs of the Norman dataset - $data_name")
+histogram!(RI_norman_GR[RI_assessment_GR.== 2], c=:coral,bins=100,label = "Unacceptable")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_prediction_Greek with regions.png")
 #
 
@@ -422,29 +402,7 @@ sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Norman_predicti
 # min_samples_leaf should stay as low as 2
 # number of trees has no significant benefit after a certain number (eg.100)
 
-## Leverage (from ToxPredict)
-#= Why is it like this?
-
-function leverage_dist(X_train,itr)
-
-    lev = zeros(itr)
-
-    for i =1:itr
-        ind = BS.sample(1:size(X_train,1))
-        x = X_train[ind,:]
-        lev[i] = transpose(x) * pinv(transpose(X_train) * X_train) * x
-        println(i)
-    end
-
-    return lev
-
-end
-
-itr = 2
-lev = leverage_dist(X_train,itr)
-=#
-
-## My Leverage function
+## Leverage
 ## Question: The Applicability Domain should be with all the descriptors?
 # The model doesn't contain them all, so why does it make sense?
 #
@@ -464,20 +422,26 @@ lev_norman_gr = leverage_dist(X_train_gr, Matrix(norman_gr))
 df = DataFrame(lev_norman_am = lev_norman_am, lev_norman_gr = lev_norman_gr)
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Leverage_Norman.csv",df)
 
-# Boxplots for amide leverage
-
+# Williams
 res_test = y_test - y_hat_test
 res_train = y_train - y_hat_train
 
 lev_train = leverage_dist(X_train, X_train)
 lev_test = leverage_dist(X_train, X_test)
 
-boxplot(vcat(lev_train,lev_test), ylims=(0,10), label=false, ylabel = "Leverage")
+boxplot(vcat(lev_train,lev_test), label=false, ylabel = "Leverage")
 cutoff = 3*std(vcat(res_test,res_train))
+h_star_am = (3*(1170+1))/1190
+h_star_gr = (3*(1170+1))/1452
 
-scatter(lev_train,res_train, c=:green, label="Train set", title="Williams plot")
+o = abs.(vcat(res_test,res_train))
+findall(x -> x.>cutoff,o)
+
+findall(x ->x.>h_star_gr,lev_test)
+
+scatter(lev_train,res_train, c=:green2, label="Training set", title="$data_name",xlims=(0,10),xlabel="Leverage", ylabel="Residual")
 scatter!(lev_test,res_test, c=:orange, label="Test set")
-plot!([2.952,2.952],[minimum(vcat(res_test,res_train)),maximum(vcat(res_test,res_train))],label=false,linecolor ="black",width=2)
+plot!([h_star_gr,h_star_gr],[minimum(vcat(res_test,res_train)),maximum(vcat(res_test,res_train))],label=false,linecolor ="black",width=2)
 plot!([0,maximum(vcat(lev_train,lev_test))],[cutoff,cutoff],label=false,linecolor ="black",width=2)
 plot!([0,maximum(vcat(lev_train,lev_test))],[-cutoff,-cutoff],label=false,linecolor ="black",width=2)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Williams_$data_name.png")
@@ -555,11 +519,11 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", 
 
 total_assessment =falses(length(RI_assessment_AM),2)  #convert.(Int64,zeros(length(RI_assessment_AM),2))
 for i = 1:length(RI_assessment_AM)
-    # Say we have Greek inside AD and RI range (marked as 1821)
+    # Say we have Greek inside AD and RI range (marked as 1)
     if assessment_gr[i]==1 && RI_assessment_GR[i]==1
         total_assessment[i,1] = 1
     end
-    # Say we have Amide inside AD and RI range (marked as 1821)
+    # Say we have Amide inside AD and RI range (marked as 1)
     if assessment_am[i]==1 && RI_assessment_AM[i]==1
         total_assessment[i,2] = 1
     end
@@ -569,8 +533,7 @@ CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\temp_file.CSV", 
 
 total_sum = (sum(total_assessment,dims=2))[:]
 histogram(total_sum, label=false, c=:yellow)
-index = findall(x -> x == 3843, total_sum)       #[total_sum.==3843,:]
-
+findall(x -> x.==2,total_sum)
 #= Contour
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", RI_norman_GR)
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", RI_norman_AM)
@@ -622,7 +585,7 @@ for i = 1:length(RI_norman_AM)
         z[i] = 5
         z_sort[i] = 521
         z_col[i] = "#d73027"        #Out of UoA AD
-        z_mark[i] = "utriangle"
+        z_mark[i] = "octagon"
     elseif assessment_gr[i]!=1 && assessment_am[i]!=1
         z[i] = 6
         z_sort[i] = 63837
@@ -643,15 +606,6 @@ marker = reshape(Symbol.(df[:,6]),length(df[:,6]),1)
 
 scatter(df[:,1], df[:,2], color=df[:,3], legend=false,markershape=marker[:],markersize=3,xlabel="n-alkylamide RI", ylabel="UoA RI")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Scatter-RI1-RI2-Classification2.png")
-#=
-z = missings(length(total_sum[i]),length(total_sum[i]))
-for j = 1:size(z,1)
-    z[j,j] = total_sum[j]
-end
-z=missings(2)
-z[1]=convert(z[1]
-=#
-#scatter(RIs[:,2],RIs[:,1],c=total_sum, xlabel = ("RI n-alkylamide"), ylabel = ("RI UoA"),legend=false)
 
 plt.clf()
 a = plt.contour(df[i,2], df[i,1], z[i,i], 2,cmap = "hot",levels=[1,2,3], alpha=0.7)
@@ -720,7 +674,7 @@ v3.get_patch_by_id("001").set_alpha(0.8)
 v3.get_patch_by_id("001").set_linestyle("solid")
 v3.get_patch_by_id("001").set_linewidth(3)
 
-plt.savefig("three_circles9.png")
+plt.savefig("three_circles10.png")
 ## PCA
 @sk_import decomposition: PCA  # We want to run a PCA
 
@@ -746,10 +700,10 @@ scores_am = pca.fit_transform(norm_am)
 using BSON
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_amide", assessment_am)
 
-scatter((scores_am[1191:end,1])[assessment_am.==3], (scores_am[1191:end,2])[assessment_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter((scores_am[1191:end,1])[assessment_am.==3], (scores_am[1191:end,2])[assessment_am.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2",title="n-alkylamide")
 scatter!((scores_am[1191:end,1])[assessment_am.==2], (scores_am[1191:end,2])[assessment_am.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_am[1191:end,1])[assessment_am.==1], (scores_am[1191:end,2])[assessment_am.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
-scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_am[1191:end,1])[assessment_am.==1], (scores_am[1191:end,2])[assessment_am.==1], label = "Inside", color = :blue, xlabel = "PC1", ylabel = "PC2")
+scatter!(scores_am[1:1190,1], scores_am[1:1190,2], label = "Training set", color = :green2, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Amide.png")
 
 #= For Amide (full training set) and Norman (all descriptors) - 2nd try two different PCAs #Not good either
@@ -800,10 +754,10 @@ loadings_gr = pca.components_
 scores_gr = pca.fit_transform(norm_gr)
 
 using BSON
-BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", judgement_gr)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\AD_category_greek", assessment_gr)
 
-scatter((scores_gr[1453:end,1])[assessment_gr.==3], (scores_gr[1453:end,2])[assessment_gr.==3], legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
+scatter((scores_gr[1453:end,1])[assessment_gr.==3], (scores_gr[1453:end,2])[assessment_gr.==3],title="UoA", legend=:topleft,label="Outside",color=:pink,xlabel="PC1",ylabel="PC2")
 scatter!((scores_gr[1453:end,1])[assessment_gr.==2], (scores_gr[1453:end,2])[assessment_gr.==2], label = "Indecisive", color = :yellow, xlabel = "PC1", ylabel = "PC2")
-scatter!((scores_gr[1453:end,1])[assessment_gr.==1], (scores_gr[1453:end,2])[assessment_gr.==1], label = "Inside", color = :green, xlabel = "PC1", ylabel = "PC2")
-scatter!(scores_gr[1:1452,1], scores_gr[1:1452,2], label = "Training set", color = :blue, xlabel = "PC1", ylabel = "PC2")
+scatter!((scores_gr[1453:end,1])[assessment_gr.==1], (scores_gr[1453:end,2])[assessment_gr.==1], label = "Inside", color = :blue, xlabel = "PC1", ylabel = "PC2")
+scatter!(scores_gr[1:1452,1], scores_gr[1:1452,2], label = "Training set", color = :green2, xlabel = "PC1", ylabel = "PC2")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\PCA_Norman_Greek.png")
