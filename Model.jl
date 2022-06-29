@@ -34,7 +34,7 @@ AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amid
 GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", DataFrame)
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
-
+norm_GR[40271,2]
 data = GR
 data_name = "UoA"
 
@@ -530,8 +530,9 @@ for i = 1:length(RI_assessment_AM)
 end
 b = DataFrame(OK_AM=total_assessment[:,2],OK_GR=total_assessment[:,1])
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\temp_file.CSV", b)
-
+b[40271,:]
 total_sum = (sum(total_assessment,dims=2))[:]
+total_sum[40271]
 histogram(total_sum, label=false, c=:yellow)
 findall(x -> x.==2,total_sum)
 #= Contour
@@ -558,32 +559,35 @@ for i = 1:length(RI_norman_AM)
     push!(z_col,"black")
     push!(z_mark,"circle")
 end
-
+assessment_gr[40271]
+RI_assessment_GR[40271]
+assessment_am[40271]
+RI_assessment_AM[40271]
 for i = 1:length(RI_norman_AM)
     # Say we have Greek inside AD and RI range (marked as 1821)
     if assessment_gr[i]==1 && RI_assessment_GR[i]==1 && assessment_am[i]==1 && RI_assessment_AM[i]==1
         z[i] = 1
-        z_sort[i] = 5948
+        z_sort[i] = 6860
         z_col[i] = "#e9a3c9"        #In both
         z_mark[i] = "diamond"
     elseif assessment_am[i]==1 && RI_assessment_AM[i]==1
         z[i] = 2
-        z_sort[i] = 4057
+        z_sort[i] = 4776
         z_col[i] = "#4575b4"
         z_mark[i] = "circle"  #In Amide
     elseif assessment_gr[i]==1 && RI_assessment_GR[i]==1
         z[i] = 3
-        z_sort[i] = 20732
+        z_sort[i] = 18952
         z_col[i] = "#c7eae5"
         z_mark[i] = "pentagon"       #In UoA
     elseif assessment_gr[i]==1 && assessment_am[i]!=1
         z[i] = 4
-        z_sort[i] = 19
+        z_sort[i] = 613
         z_col[i] = "#f1a340"        #Out of Amide AD
         z_mark[i] = "rect"
     elseif assessment_am[i]==1 && assessment_gr[i]!=1
         z[i] = 5
-        z_sort[i] = 521
+        z_sort[i] = 76
         z_col[i] = "#d73027"        #Out of UoA AD
         z_mark[i] = "octagon"
     elseif assessment_gr[i]!=1 && assessment_am[i]!=1
@@ -593,7 +597,7 @@ for i = 1:length(RI_norman_AM)
         z_mark[i] = "rect"
     end
 end
-
+findall(x -> x.==0,z)
 index = Int.(zeros(6,2))
 index[:,1]=Int.(collect(1:6))
 for i = 1:6
@@ -606,6 +610,33 @@ marker = reshape(Symbol.(df[:,6]),length(df[:,6]),1)
 
 scatter(df[:,1], df[:,2], color=df[:,3], legend=false,markershape=marker[:],markersize=3,xlabel="n-alkylamide RI", ylabel="UoA RI")
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Scatter-RI1-RI2-Classification2.png")
+
+
+
+groupA = findall(x -> x .== 1, z)
+groupB = findall(x -> x .== 2, z)
+groupC = findall(x -> x .== 3, z)
+groupD = findall(x -> x .== 4, z)
+groupE = findall(x -> x .== 5, z)
+groupF = findall(x -> x .== 6, z)
+
+random_list_a = Vector{String}()
+for i = 1:20
+    ind = BS.sample(groupA)
+    push!(random_list_a,norm_AM[ind,2])
+end
+list_a = unique(random_list_a)
+
+
+
+
+norm_AM[40271,2]
+
+
+
+
+
+
 
 plt.clf()
 a = plt.contour(df[i,2], df[i,1], z[i,i], 2,cmap = "hot",levels=[1,2,3], alpha=0.7)
@@ -623,9 +654,9 @@ Conda.pip_interop(true)
 #Conda.pip("install",["pyqt5"])
 venn = pyimport("matplotlib_venn")
 
-AM_not_GR = (sum(total_assessment,dims=1))[2]
-GR_not_AM = (sum(total_assessment,dims=1))[1]
 AM_and_GR = length(total_sum[total_sum.==2])
+AM_not_GR = (sum(total_assessment,dims=1))[2] - AM_and_GR
+GR_not_AM = (sum(total_assessment,dims=1))[1] - AM_and_GR
 
 AMnotGRnotNorman
 #= Simple 2 circles Venn
@@ -653,7 +684,7 @@ aBC = GR_not_AM
 ABC = AM_and_GR
 
 plt.clf()
-v3 = venn.venn3(subsets = (Abc, aBc, ABc, abC, AbC, aBC, ABC), set_labels = ("Amide", "Greek", "Norman dataset", "Norman dataset", "AbC", "aBC", "ABC"))
+v3 = venn.venn3(subsets = (Abc, aBc, ABc, abC, AbC, aBC, ABC), set_labels = ("n-alkylamide", "UoA", "NORMAN", "NORMAN", "AbC", "aBC", "ABC"))
 v3.get_patch_by_id("111").set_color("green")
 v3.get_patch_by_id("111").set_alpha(0.8)
 v3.get_patch_by_id("111").set_linestyle("solid")
@@ -674,7 +705,7 @@ v3.get_patch_by_id("001").set_alpha(0.8)
 v3.get_patch_by_id("001").set_linestyle("solid")
 v3.get_patch_by_id("001").set_linewidth(3)
 
-plt.savefig("three_circles10.png")
+plt.savefig("three_circles12.png")
 ## PCA
 @sk_import decomposition: PCA  # We want to run a PCA
 

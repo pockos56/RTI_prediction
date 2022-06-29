@@ -151,15 +151,6 @@ for j = 1:size(amide_ref,2)
     end
 end
 
-#    amide_max = zeros(size(amide_ref,2))
-#    for j = 1:size(amide_ref,2)
-#        amide_max[j] = maximum(amide_ref[:,j])
-#    end
-#    mmmax = findall(x -> x < 1,amide_max[:])     # The descriptors with high maximum difference
-#z = (amide_max[amide_max .<1])
-#z[z .!= 0]
-#sum(amide_max)
-
 
 ## Normalization for the Greek Dataset
 greek_ref_ = select(deepcopy(greek_raw), descriptors)
