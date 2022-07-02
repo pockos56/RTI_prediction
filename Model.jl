@@ -619,13 +619,20 @@ groupC = findall(x -> x .== 3, z)
 groupD = findall(x -> x .== 4, z)
 groupE = findall(x -> x .== 5, z)
 groupF = findall(x -> x .== 6, z)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupA", groupA)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupB", groupB)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupC", groupC)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupD", groupD)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupE", groupE)
+BSON.@save("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupF", groupF)
 
-random_list_a = Vector{String}()
+random_list_f = Vector{String}()
 for i = 1:20
-    ind = BS.sample(groupA)
-    push!(random_list_a,norm_AM[ind,2])
+    ind = BS.sample(groupF)
+    push!(random_list_f,norm_AM[ind,2])
 end
-list_a = unique(random_list_a)
+list = unique(random_list_f)
+
 
 
 
