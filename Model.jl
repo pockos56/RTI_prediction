@@ -205,7 +205,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -234,10 +234,28 @@ histogram(RTI, bins=60, label="Experimental RIs", xaxis = "Experimental RI", yax
 histogram2d(vcat(y_hat_test,y_hat_train),vcat(res_test,res_train),label="Predicted RIs",bins = 60,alpha=0.5)
 
 # Correlation matrix
-cortemp = cor(hcat(RTI, desc_temp))
+dat = hcat(RTI, desc_temp)
+cortemp = cor(dat)
+labels = vcat("RTI",String.(selection))
 
-heatmap(cortemp, title = "Correlation matrix heatmap - $data_name")
+heatmap(cortemp, title = "Correlation matrix heatmap - $data_name",size=(950,700),dpi=100,xtickfont=11,tickfont=11,bottom_margin = 5Plots.mm, right_margin = 12Plots.mm)
+#yticks!(rotation=0,[1:1:length(labels);], [labels[1],labels[2],labels[3],labels[4],labels[5],labels[6],labels[7],labels[8],labels[9],labels[10],labels[11],labels[12],labels[13],labels[14]])
+#xticks!(xflip=false,xrotation=45,[1:1:length(labels);], [labels[1],labels[2],labels[3],labels[4],labels[5],labels[6],labels[7],labels[8],labels[9],labels[10],labels[11],labels[12],labels[13],labels[14]])
+yticks!(yflip=true,yrotation=0,1:length(labels),[labels[i] for i in 1:length(labels)])
+xticks!(xflip=false,xrotation=45,1:length(labels),[labels[i] for i in 1:length(labels)])
+
 savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Correlation_matrix_heatmap_$data_name.png")
+
+#With a dummy variable
+cortemp_dum = cor(hcat(dat,rand(size(dat,1))))
+labels_dum = vcat(labels,"Dummy")
+heatmap(cortemp_dum, title = "Correlation matrix heatmap - $data_name",size=(950,700),dpi=100,xtickfont=11,tickfont=11,bottom_margin = 5Plots.mm, right_margin = 12Plots.mm)
+yticks!(yflip=true,1:length(labels_dum),[labels_dum[i] for i in 1:length(labels_dum)])
+xticks!(xflip=false,xrotation=45,1:length(labels_dum),[labels_dum[i] for i in 1:length(labels_dum)])
+savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Correlation_matrix_heatmap_$data_name with dummy.png")
+
+
+
 
 # Distribution of Descriptors (to find the adjustment range)
 quantiles = zeros(size(desc_temp,2),2)
