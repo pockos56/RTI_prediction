@@ -35,20 +35,20 @@ GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Gree
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
 norm_GR[40271,2]
-data = GR
-data_name = "UoA"
+data = AM
+data_name = "n-alkylamide"
 
-#For the Greek dataset
+#=For the Greek dataset
 retention = data[!,[:2]]
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", retention)
 retention_cor = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_$(data_name).csv", DataFrame, decimal = ',')
 RTI = retention_cor[:,1]
 desc = Matrix(data[:,4:end])
-#
-#= For the Amide dataset
+=#
+# For the Amide dataset
         RTI = data[:,2]
         desc = Matrix(data[:,6:end])           # Careful! Matrix should have 1170 descriptors
-=#
+#
 #################################
 # Experimental RTI Plotting
 histogram(RTI, bins=90, label=false, xaxis = "Experimental RI", yaxis = "Frequency", title = "RI distribution for the $(data_name) dataset")
@@ -205,7 +205,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -236,7 +236,7 @@ histogram2d(vcat(y_hat_test,y_hat_train),vcat(res_test,res_train),label="Predict
 # Correlation matrix
 dat = hcat(RTI, desc_temp)
 cortemp = cor(dat)
-labels = vcat("RTI",String.(selection))
+labels = vcat("RI",String.(selection))
 
 heatmap(cortemp, title = "Correlation matrix heatmap - $data_name",size=(950,700),dpi=100,xtickfont=11,tickfont=11,bottom_margin = 5Plots.mm, right_margin = 12Plots.mm)
 #yticks!(rotation=0,[1:1:length(labels);], [labels[1],labels[2],labels[3],labels[4],labels[5],labels[6],labels[7],labels[8],labels[9],labels[10],labels[11],labels[12],labels[13],labels[14]])
@@ -248,6 +248,7 @@ savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Correlation_matrix
 
 #With a dummy variable
 cortemp_dum = cor(hcat(dat,rand(size(dat,1))))
+sort(abs.(cortemp_dum[:,15]), rev=true)[2]
 labels_dum = vcat(labels,"Dummy")
 heatmap(cortemp_dum, title = "Correlation matrix heatmap - $data_name",size=(950,700),dpi=100,xtickfont=11,tickfont=11,bottom_margin = 5Plots.mm, right_margin = 12Plots.mm)
 yticks!(yflip=true,1:length(labels_dum),[labels_dum[i] for i in 1:length(labels_dum)])
@@ -567,7 +568,7 @@ df = sort(df_)
 z = Diagonal(df.total_sum[i])
 =#
 
-#Scatter instead RI1,RI2, classification
+#Scatter RI1,RI2, classification
 z=zeros(length(RI_norman_AM))
 z_sort=zeros(length(RI_norman_AM))
 
@@ -615,7 +616,7 @@ for i = 1:length(RI_norman_AM)
         z_mark[i] = "rect"
     end
 end
-findall(x -> x.==0,z)
+findall(x -> x.==6,z)
 index = Int.(zeros(6,2))
 index[:,1]=Int.(collect(1:6))
 for i = 1:6
@@ -626,8 +627,10 @@ df_=DataFrame(RI_norman_AM=RI_norman_AM, RI_norman_GR=RI_norman_GR,z_col=z_col,z
 df=sort(df_,[order(:z_sort, rev=true)])
 marker = reshape(Symbol.(df[:,6]),length(df[:,6]),1)
 
-scatter(df[:,1], df[:,2], color=df[:,3], legend=false,markershape=marker[:],markersize=3,xlabel="n-alkylamide RI", ylabel="UoA RI")
-sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Scatter-RI1-RI2-Classification2.png")
+scatter(df[:,1], df[:,2], color=df[:,3], legend=false,markershape=marker[:],bottom_margin = 30Plots.px,left_margin = 30Plots.px,
+markersize=5,xlabel="n-alkylamide RI", ylabel="UoA RI",dpi=300,size=(1200,800),tickfontsie=2)
+
+sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Scatter-RI1-RI2-ClassificationHD.png")
 
 
 

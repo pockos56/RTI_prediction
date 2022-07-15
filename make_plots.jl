@@ -7,6 +7,8 @@ import StatsBase as BS
 import StatsPlots as sp
 import PyPlot as plt
 
+
+# Legend
 z=zeros(6)
 z_sort=zeros(6)
 z_col=Vector{String}()
@@ -109,7 +111,7 @@ com[18] = findall(x -> x .== "VHBFFQKBGNRLFZ-UHFFFAOYSA-N",Norm)[1]     # Flavon
 com[19] = findall(x -> x .== "LNTHITQWFMADLM-UHFFFAOYSA-N",Norm)[1]     # Gallic acid
 com[20] = findall(x -> x .== "IKGXIBQEEMLURG-NVPNHPEKSA-N",Norm)[1]     # Rutin
 
-z = zeros(length(com),6)
+z = Int.(zeros(length(com),6))
 for i = 1:length(com)
     z[i,1] = length(findall(x -> x .== com[i],groupA))
     z[i,2] = length(findall(x -> x .== com[i],groupB))
@@ -137,19 +139,19 @@ c1 = C_[Int(round(size(C_,1)*0.052)),:]       # No
 c2 = C_[Int(round(size(C_,1)*0.452)),:]       # Yes 10.1007/BF00262588
 c3 = C_[Int(round(size(C_,1)*0.501)),:]       # Yes pubchem
 c4 = C_[Int(round(size(C_,1)*0.553)),:]       # Yes pubchem
-c5 = C_[Int(round(size(C_,1)*0.953)),:]       # No
+c5 = C_[Int(round(size(C_,1)*0.9515)),:]       # Yes
 D_ = sort(Norm_raw[groupD,:],[order(:MW)])[:,[:SMILES, :MW]]
 d1 = D_[Int(round(size(D_,1)*0.052)),:]       # Yes, 10.1093/protein/8.3.275
-d2 = D_[Int(round(size(D_,1)*0.456)),:]       # No
+d2 = D_[Int(round(size(D_,1)*0.456)),:]      # No
 d3 = D_[Int(round(size(D_,1)*0.506)),:]       # No
-d4 = D_[Int(round(size(D_,1)*0.55)),:]        # Yes, 10.1007/s10337-013-2393-y
-d5 = D_[Int(round(size(D_,1)*0.954)),:]       # No
+d4 = D_[Int(round(size(D_,1)*0.55)),:]       # Yes, 10.1007/s10337-013-2393-y
+d5 = D_[Int(round(size(D_,1)*0.954)),:]      # No
 E_ = sort(Norm_raw[groupE,:],[order(:MW)])[:,[:SMILES, :MW]]
 e1 = E_[Int(round(size(E_,1)*0.06)),:]       # Yes, 10.1016/S0003-2670(01)83774-0
-e2 = E_[Int(round(size(E_,1)*0.45)),:]       # Yes, 10.1081/AL-200043463
+e2 = E_[Int(round(size(E_,1)*0.45)),:]      # Yes, 10.1081/AL-200043463
 e3 = E_[Int(round(size(E_,1)*0.54)),:]       # No
-e4 = E_[Int(round(size(E_,1)*0.55)),:]       # Yes, Extraction and quantification of phthalates in plastic coca-cola soft drinks using high performance liquid chromatography
-e5 = E_[Int(round(size(E_,1)*0.97)),:]      # No
+e4 = E_[Int(round(size(E_,1)*0.55)),:]       # Yes, 10.1016/j.chroma.2019.06.034
+e5 = E_[Int(round(size(E_,1)*0.97)),:]     # No
 
 F_ = sort(Norm_raw[groupF,:],[order(:MW)])[:,[:SMILES, :MW]]
 f1 = F_[Int(round(size(F_,1)*0.065)),:]       # No
@@ -175,7 +177,7 @@ plot!([c1[2],c1[2]],[0,1040],c=:red3,linewidth=3)
 plot!([c2[2],c2[2]],[0,1719],c=:green,linewidth=3)
 plot!([c3[2],c3[2]],[0,1480],c=:green,linewidth=3)
 plot!([c4[2],c4[2]],[0,1480],c=:green,linewidth=3)
-plot!([c5[2],c5[2]],[0,345],c=:red3,linewidth=3)
+plot!([c5[2],c5[2]],[0,345],c=:green,linewidth=3)
 d_mw = plot(Norm_raw[groupD,:].MW,seriestype=stephist,fill=true,c=:darkorange2,alpha=0.8,title="Group D",bins=60)
 plot!([d1[2],d1[2]],[0,17],c=:green,linewidth=3)
 plot!([d2[2],d2[2]],[0,44],c=:red3,linewidth=3)
@@ -188,9 +190,14 @@ plot!([e2[2],e2[2]],[0,1],c=:green,linewidth=3)
 plot!([e3[2],e3[2]],[0,3],c=:red3,linewidth=3)
 plot!([e4[2],e4[2]],[0,3],c=:green,linewidth=3)
 plot!([e5[2],e5[2]],[0,3],c=:red3,linewidth=3)
-f_=(Norm_raw[groupF,:].MW)
+f_=(Norm_raw[groupF,:].MW) ### CHANGE TO .MW
 f_[ismissing.(f_) .==1] .= -500
-f_mw = plot(f_,seriestype=stephist,fill=true,c=:darkorange2,alpha=0.8,xlims=(0,1300),title="Group F",bins=180)
+sort(f_,rev=true)
+sortperm(f_)[1]
+Norm_raw[groupF,:][sortperm(f_)[1],:CrippenLogP]
+Norm_raw[groupF,:][sortperm(f_)[end],:CrippenLogP]
+
+f_mw = plot(f_,seriestype=stephist,fill=true,c=:darkorange2,xlims=(0,1200),alpha=0.8,title="Group F",bins=180)
 plot!([f1[2],f1[2]],[0,2252],c=:red3,linewidth=3)
 plot!([f2[2],f2[2]],[0,2500],c=:green,linewidth=3)
 plot!([f3[2],f3[2]],[0,2540],c=:red3,linewidth=3)
@@ -206,8 +213,8 @@ f_logp = plot(Norm_raw[groupF,:].CrippenLogP,seriestype=stephist,c=:lightyellow4
 l1 = @layout [z{0.1h};a b;c d; e f]
 l2 = @layout [z{0.1h} z{0.1h};a b;c d; e f]
 l3 = @layout [a b;c d; e f]
-title1 = plot(title="Molecular weight",grid = false, showaxis = false,tick=false,bottom_margin = -50Plots.px,titlefont=16)
-title2 = plot(title="Crippen LogP",grid = false, showaxis = false,tick=false,bottom_margin = -50Plots.px,titlefont=16)
+title1 = plot(title="Molecular Weight",grid = false, showaxis = false,tick=false,bottom_margin = -50Plots.px,titlefont=16)
+title2 = plot(title="Crippen's LogP",grid = false, showaxis = false,tick=false,bottom_margin = -50Plots.px,titlefont=16)
 
 plot(title1,title2,a_mw,a_logp,b_mw,b_logp,c_mw,c_logp,legend=false, c=:blue3, layout=l2,dpi=600,size=(900,600))
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Validation_MW_CLogP_ABC.png")

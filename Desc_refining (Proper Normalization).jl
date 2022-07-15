@@ -40,6 +40,10 @@ x = findall(x -> x >0, countmissing)        # No missing values :-)
 
 ## Loading the Amide dataset
 amide_raw = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Amide_descriptors1.csv", DataFrame)
+amide_raw.PubchemFP14
+sum(amide_raw.PubchemFP14)
+
+
 amide_ = select(amide_raw, nice_desc)
 amide = select(amide_,Not(bad))
 show(amide_raw)
