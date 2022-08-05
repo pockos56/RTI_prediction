@@ -177,10 +177,6 @@ end
 
 ## Normalization for the Norman Dataset
 #
-# Questions
-# a) Should the normalisation factors be the same for the Norman dataset or should it change depending on the model?
-# b) Maybe we should apply the same normalisation factors to everything?
-#
 norman_ref_ = select(deepcopy(Norm_raw), descriptors)
 norman_ref_GR = convert.(Float64, norman_ref_[:, :])
 norman_ref_AM = convert.(Float64, norman_ref_[:, :])
@@ -199,6 +195,32 @@ for j = 1:size(norman_ref_AM,2)
           norman_ref_AM[:,j] = vec_temp
     end
 end
+
+# MB Normalization
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptors", descriptors)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Amide_normalisation_factors", amide_max)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Greek_normalisation_factors", greek_max)
+
+mb_raw = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\MB_Descriptors.csv", DataFrame)
+mb_ref_ = select(deepcopy(mb_raw), descriptors)
+mb_ref_GR = convert.(Float64, mb_ref_[:, :])
+mb_ref_AM = convert.(Float64, mb_ref_[:, :])
+
+for j = 1:size(mb_ref_GR,2)
+    if greek_max[j] != 0
+          vec_temp = (mb_ref_GR[:,j] ./ abs(greek_max[j]))
+          mb_ref_GR[:,j] = vec_temp
+    end
+end
+
+for j = 1:size(mb_ref_AM,2)
+    if amide_max[j] != 0
+          vec_temp = (mb_ref_AM[:,j] ./ abs(amide_max[j]))
+          mb_ref_AM[:,j] = vec_temp
+    end
+end
+
+
 ## Bringing back the same first columns
 amide_ref_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.csv", DataFrame)
 greek_ref_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", DataFrame)
@@ -207,6 +229,10 @@ norman_ref_AM_ = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\
 
 norman_ref_GR_ = hcat(Norm_raw[:,1:2], norman_ref_GR)
 norman_ref_AM_ = hcat(Norm_raw[:,1:2], norman_ref_AM)
+
+mb_ref_GR_ = hcat(mb_raw[:,1], mb_ref_GR)
+mb_ref_AM_ = hcat(mb_raw[:,1], mb_ref_AM)
+
 
 amide_ref_ = hcat(amide_raw[:,1:5], amide_ref)
 
@@ -221,3 +247,5 @@ CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amide.cs
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", greek_ref_)
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", norman_ref_GR_)
 CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", norman_ref_AM_)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_MB_(Greek model).csv", mb_ref_GR_)
+CSV.write("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_MB_(Amide model).csv", mb_ref_AM_)

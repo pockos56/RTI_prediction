@@ -34,7 +34,11 @@ AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Amid
 GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Greek.csv", DataFrame)
 norm_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Greek model).csv", DataFrame)
 norm_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_Norman_(Amide model).csv", DataFrame)
-norm_GR[40271,2]
+mb_GR = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_MB_(Greek model).csv", DataFrame)
+mb_AM = CSV.read("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Refined_MB_(Amide model).csv", DataFrame)
+
+
+
 data = AM
 data_name = "n-alkylamide"
 
@@ -126,7 +130,7 @@ MaxFeat = Int(round((size(desc,2))/3))
 n_estimators = 500          #500 for the Greek, 400 for the Amide
 min_samples_leaf = 4
 reg = RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, max_features= MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
-X_train, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
+X_train_AM, X_test, y_train, y_test = train_test_split(desc, RTI, test_size=0.20, random_state=21);
 fit!(reg, X_train, y_train)
 
 ## Calculation of R2
@@ -205,7 +209,7 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Descriptor_name
 
 desc_temp = Matrix(select(data, selection))
 MaxFeat = Int64(ceil(size(desc_temp,2)/3))
-reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
@@ -306,9 +310,6 @@ y_hat_lowest = sort(y_hat_low)[1]
 histogram(y_hat_low, label=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Lowest point - Distribution",bins=100)
 #sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
 
-boxplot(y_hat_low, label=false,yaxis = "Predicted RI",title = "Lowest point - Distribution")
-#sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_boxplot_$data_name.png")
-
 centr_low = y_hat_low.-y_hat_lowest.+0.00001
 histogram(centr_low)
 
@@ -319,7 +320,7 @@ uncertainty_low =quantile(d_low,0.975) - quantile(d_low,0.025)
 
 
 histogram(y_hat_low, legend=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Lowest point - Gamma distribution",bins=100)
-plot!(x.+y_hat_lowest, 5000*(pdf.(d,x)),label=false,linewidth=4)
+plot!(x.+y_hat_lowest, 5000*(pdf.(d_low,x)),label=false,linewidth=4)
 plot!([y_hat_lowest,y_hat_lowest+uncertainty_low],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="black",width=2)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Lowest_point_distribution_$data_name.png")
 
@@ -356,7 +357,7 @@ uncertainty_high =quantile(d_high,0.975) - quantile(d_high,0.025)
 
 
 histogram(y_hat_high, legend=false, yaxis = "Frequency",xaxis = "Predicted RI",title = "Highest point - Gamma distribution",bins=50)
-plot!(-(x.-y_hat_highest), 9000*(pdf.(d,x)),label=false,linewidth=4)
+plot!(-(x.-y_hat_highest), 9000*(pdf.(d_high,x)),label=false,linewidth=4)
 plot!([y_hat_highest,y_hat_highest-uncertainty_high],[-10,-10],label="1:1 line",linewidth=1,arrow=:both,linecolor ="black",width=2)
 sp.savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Highest_point_distribution_$data_name.png")
 
@@ -366,7 +367,7 @@ threshold_low = y_hat_lowest + uncertainty_low
 threshold_high = y_hat_highest - uncertainty_high
 
 ## Norman RI prediction
-reg = RandomForestRegressor(n_estimators=500, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
+reg = RandomForestRegressor(n_estimators=400, min_samples_leaf=4, max_features=MaxFeat, n_jobs=-1, oob_score =true, random_state=21)
 X_train, X_test, y_train, y_test = train_test_split(desc_temp, RTI, test_size=0.20, random_state=21)
 fit!(reg, X_train, y_train)
 
