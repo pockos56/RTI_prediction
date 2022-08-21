@@ -89,7 +89,7 @@ inch = Norm_raw_[:,3]
 inch[ismissing.(inch) .== 1] .= "WeWillMissYou"
 Norm = convert.(String, inch)
 
-com = Int.(zeros(20))
+com = Int.(zeros(21))
 com[1] = findall(x -> x .== "RYYVLZVUVIJVGH-UHFFFAOYSA-N",Norm)[1]      #Caffeine
 com[2] = findall(x -> x .== "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",Norm)[1]      #Aspirin
 com[3] = findall(x -> x .== "LNEPOXFFQSENCJ-UHFFFAOYSA-N",Norm)[1]      #Haloperidol
@@ -110,6 +110,11 @@ com[17] = findall(x -> x .== "OCJBOOLMMGQPQU-UHFFFAOYSA-N",Norm)[1]     # 1,4-di
 com[18] = findall(x -> x .== "VHBFFQKBGNRLFZ-UHFFFAOYSA-N",Norm)[1]     # Flavone
 com[19] = findall(x -> x .== "LNTHITQWFMADLM-UHFFFAOYSA-N",Norm)[1]     # Gallic acid
 com[20] = findall(x -> x .== "IKGXIBQEEMLURG-NVPNHPEKSA-N",Norm)[1]     # Rutin
+com[21] = findall(x -> x .== "XSQUKJJJFZCRTK-UHFFFAOYSA-N",Norm)[1]     # Urea (should not be included)
+
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", RI_norman_GR)
+BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", RI_norman_AM)
+urea = [RI_norman_GR[com[21]],RI_norman_AM[com[21]]]
 
 z = Int.(zeros(length(com),6))
 for i = 1:length(com)
