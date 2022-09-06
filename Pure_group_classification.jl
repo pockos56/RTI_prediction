@@ -33,6 +33,7 @@ residual_am_outsideAD = 120
 residual_gr_outsideAD = 120
 urea_am = 227
 urea_gr = 296.4
+#urea_gr = 100
 
 maingroup=Int.(zeros(length(RI_mb_AM)))
 for i = 1:length(RI_mb_AM)
@@ -75,4 +76,6 @@ end
 
 accepted = secondgroup[secondgroup.==1]
 rejected = secondgroup[secondgroup.==2]
-(length(accepted)*100)/(length(accepted)+ length(rejected))
+accuracy = (length(accepted)*100)/(length(accepted)+length(rejected))
+ddd = secondgroup[secondgroup.==5]
+(length(rejected)*100)/(length(secondgroup))
