@@ -41,18 +41,38 @@ BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_GR", 
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\RI_Norman_AM", RI_norman_AM)
 BSON.@load("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\Index_GroupF", groupF)
 
-F_ = sort(Norm_raw[groupF,:],[order(:MW)])[:,[:SMILES, :MW]]
-f_test_ = F_[60100,:]
+# Negative controls - Selected MWs
+#=
+F_ = (Norm_raw[groupF,:])[:,[:SMILES, :MW, :CrippenLogP]]
+F_.RI_AM = RI_norman_AM[groupF]
+F_.RI_GR = RI_norman_GR[groupF]
+F_sort = sort(F_,[order(:MW)])
+
+f_test_ = F_[4,:]
 f_test_[1]
 
 definitely_F = [4,5,638,2022,12767,14683,32876,60100]           # Please add more to this list!!!
 
-negative_cntrls_gr = RI_norman_GR[definitely_F]
-negative_cntrls_am = RI_norman_AM[definitely_F]
+negative_cntrls_gr = F_sort[definitely_F,:RI_GR]
+negative_cntrls_am = F_sort[definitely_F,:RI_AM]
+=#
+# Negative controls - CrippenLogP threshold <-4 , >+6
+F_ = (Norm_raw[groupF,:])[:,[:SMILES, :MW, :CrippenLogP]]
+F_.RI_AM = RI_norman_AM[groupF]
+F_.RI_GR = RI_norman_GR[groupF]
+F_sort = sort(F_,[order(:CrippenLogP)])
 
+definitely_F = vcat(findall(x -> x < -4, F_sort.CrippenLogP), findall(x -> x > 6, F_sort.CrippenLogP))
+
+negative_cntrls_gr = F_sort[definitely_F,:RI_GR]
+negative_cntrls_am = F_sort[definitely_F,:RI_AM]
+#
+# Notes on meeting 19/09/2022
+#Filter to the MW range of the training set
+#<-4 and >+6 CrippenLogP -> pick 200 compounds for training the validation parameters set and 100 compounds for test set
 # ROC
-iterations = 10000
 
+iterations = 10000
 data = zeros(iterations,6)
 for i = 1:iterations
     x1_gr = BS.sample(up_gr)
@@ -122,7 +142,7 @@ df_data = DataFrame(data, :auto)
 unique_false_positives = sort(unique(df_data[:,2]))
 
 max_points = zeros(length(unique_false_positives),6)
-for i = 1:length(unique_false_positives)
+for i = 1:5:length(unique_false_positives)
     f_pos = unique_false_positives[i]
     df_data_temp = filter(row -> row.x2 == f_pos,df_data)
     df_data_temp_sorted = sort(df_data_temp, :x1, rev=true)
@@ -132,7 +152,7 @@ end
 # ROC
 plot(max_points[:,2], max_points[:,1], legend=false, xlims=[0,1], ylims=[0,1], xaxis="False positives",yaxis="True positives")
 scatter!(max_points[:,2], max_points[:,1], title="ROC Curve")
-savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\ROC-7 NC.png")
+savefig("C:\\Users\\alex_\\Documents\\GitHub\\RTI_prediction\\ROC.png")
 
 # The whole ROC
 scatter(data[:,2], data[:,1], legend=false, xlims=[0,1], ylims=[0,1], xaxis="False positives",yaxis="True positives", title="ROC 'curve'")
